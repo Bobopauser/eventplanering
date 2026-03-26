@@ -495,6 +495,17 @@
 </div>
 
 <script>const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjjyyNT2sw0VS_K06iNpuUo8XBsTmOS7-5eUZaiVPeEsanQBZwx0H76RN1Iw3Kk56QFw/exec';
+const PRIO = {
+  high:   { label:'Hög',    color:'var(--red)',    bg:'rgba(255,107,107,0.12)', icon:'🔴' },
+  medium: { label:'Medium', color:'var(--yellow)', bg:'rgba(255,217,61,0.1)',   icon:'🟡' },
+  low:    { label:'Låg',    color:'var(--green)',  bg:'rgba(81,207,102,0.1)',   icon:'🟢' },
+};
+function prioSort(a,b){
+  const o={high:0,medium:1,low:2};
+  if(a.done!==b.done) return a.done?1:-1;
+  return (o[a.priority]??1)-(o[b.priority]??1);
+}
+
 const BRAND_COLORS = {'Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)','Miljö & Utveckling':'var(--mu)','Techtidningen':'var(--tech)'};
 const MONTHS_S = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 const MONTHS   = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
@@ -543,7 +554,7 @@ function doLogin(){
   function loginSuccess(){
     sessionStorage.setItem('ep_auth', 'true');
     sessionStorage.setItem('ep_user', user);
-    document.getElementById('login-screen').style.display = 'none';
+    const ls=document.getElementById('login-screen'); if(ls) ls.style.display='none';
     const n = document.getElementById('save-note');
     if(n) n.textContent = '👤 Inloggad som ' + user;
     setTimeout(()=>{ if(n) n.textContent = SCRIPT_URL ? '☁️ Google Sheets' : 'Sparas lokalt'; }, 2500);
@@ -594,17 +605,17 @@ function checkAuth(){
   if(window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
     sessionStorage.setItem('ep_auth', 'true');
     sessionStorage.setItem('ep_user', 'admin');
-    document.getElementById('login-screen').style.display = 'none';
+    const ls=document.getElementById('login-screen'); if(ls) ls.style.display='none';
     return true;
   }
   if(!isLoggedIn()){
-    document.getElementById('login-screen').style.display = 'flex';
+    const loginEl=document.getElementById('login-screen'); if(loginEl) loginEl.style.display='flex';
     // Pre-load users from sheet while user types
     if(SCRIPT_URL) loadUsersFromSheet(()=>{});
     setTimeout(()=>document.getElementById('login-user')?.focus(), 100);
     return false;
   }
-  document.getElementById('login-screen').style.display = 'none';
+  const loginEl2=document.getElementById('login-screen'); if(loginEl2) loginEl2.style.display='none';
   return true;
 }
 
@@ -1963,11 +1974,7 @@ function renderCalItem(item){
 
         <!-- Bottom buttons -->
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
-          <button onclick="event.stopPropagation();openEditModal('${ev.id}')"
-            style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);
-            background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;">
-            ✏️ Redigera
-          </button>
+
           <button onclick="event.stopPropagation();goToTracker('${ev.id}')"
             style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent2);
             background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;">
@@ -1988,6 +1995,10 @@ function renderCalItem(item){
             title="Redigera event"
             style="flex-shrink:0;font-size:0.65rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);
             background:transparent;color:var(--muted);cursor:pointer;line-height:1.4;">✏️</button>
+          <button onclick="event.stopPropagation();openDeleteConfirm('${ev.id}')"
+            title="Ta bort event"
+            style="flex-shrink:0;font-size:0.65rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);
+            background:transparent;color:var(--red);cursor:pointer;line-height:1.4;">🗑</button>
         </div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
           ${ev ? yb(ev.year) : ''}
@@ -2316,16 +2327,8 @@ function _closeModal_removed(){ // duplicate guard handled by JS hoisting
 }{ document.getElementById('notes-modal').style.display='none'; }
 function closeNotesBg(e){ if(e.target===document.getElementById('notes-modal')) closeNotesModal(); }
 
-const PRIO = {
-  high:   { label:'Hög',    color:'var(--red)',    bg:'rgba(255,107,107,0.12)', icon:'🔴' },
-  medium: { label:'Medium', color:'var(--yellow)', bg:'rgba(255,217,61,0.1)',   icon:'🟡' },
-  low:    { label:'Låg',    color:'var(--green)',  bg:'rgba(81,207,102,0.1)',   icon:'🟢' },
-};
-function prioSort(a,b){
-  const o={high:0,medium:1,low:2};
-  if(a.done!==b.done) return a.done?1:-1;
-  return (o[a.priority]??1)-(o[b.priority]??1);
-}
+
+
 function buildTasksModalContent(evId, field){
   const list=[...getTasks(evId,field)].sort(prioSort);
   const rows=list.map(t=>{
@@ -2757,8 +2760,7 @@ function exportCSV(){
 
 // ── RESPONSIVE ────────────────────────────────────────────────
 function chk(){
-  const g=document.getElementById('dash-grid');
-  if(g) g.style.gridTemplateColumns=window.innerWidth<680?'1fr':'1fr 1fr';
+
 }
 window.addEventListener('resize',chk); chk();
 
