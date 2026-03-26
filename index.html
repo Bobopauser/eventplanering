@@ -2571,11 +2571,111 @@ function exportICS(yearFilter){
 // studioBookings declared earlier
 let studioIdCounter = 1;
 
+const INITIAL_STUDIO_BOOKINGS = [
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "2026-01-28",
+    "activityType": "Spårvalsinspelning",
+    "sponsor": "",
+    "streamUrl": "",
+    "notes": "FLD digital"
+  },
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "2026-02-11",
+    "activityType": "Webbinar",
+    "sponsor": "Brilliant Future",
+    "streamUrl": "",
+    "notes": "Uthyrd - externt"
+  },
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "2026-02-19",
+    "activityType": "Frukost webbinar",
+    "sponsor": "",
+    "streamUrl": "https://kvalitetsmagasinet.se/webbinarium-19-februari-2026/",
+    "notes": ""
+  },
+  {
+    "brand": "Techtidningen",
+    "year": 2026,
+    "date": "2026-03-19",
+    "activityType": "Techtorsdag",
+    "sponsor": "",
+    "streamUrl": "https://techtidningen.se/techtorsdag-19-mars/",
+    "notes": ""
+  },
+  {
+    "brand": "Miljö & Utveckling",
+    "year": 2026,
+    "date": "2026-04-27",
+    "activityType": "Webbinar",
+    "sponsor": "",
+    "streamUrl": "",
+    "notes": ""
+  },
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "2026-04-29",
+    "activityType": "Sponsrat webbinar",
+    "sponsor": "Addsystems",
+    "streamUrl": "",
+    "notes": ""
+  },
+  {
+    "brand": "Vd-tidningen",
+    "year": 2026,
+    "date": "2026-05-11",
+    "activityType": "Webbinar",
+    "sponsor": "",
+    "streamUrl": "",
+    "notes": ""
+  },
+  {
+    "brand": "Techtidningen",
+    "year": 2026,
+    "date": "2026-05-12",
+    "activityType": "Sponsrat webbinar",
+    "sponsor": "Brilliant Future",
+    "streamUrl": "",
+    "notes": ""
+  },
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "2026-05-28",
+    "activityType": "Sponsrat webbinar",
+    "sponsor": "Centuri",
+    "streamUrl": "",
+    "notes": ""
+  },
+  {
+    "brand": "Kvalitetsmagasinet",
+    "year": 2026,
+    "date": "",
+    "activityType": "Sponsrat webbinar",
+    "sponsor": "Canea",
+    "streamUrl": "",
+    "notes": "Datum ej satt"
+  }
+];
+
 function loadStudio(){ 
   try{ 
     const s=JSON.parse(localStorage.getItem('ep_studio')||'[]'); 
-    studioBookings=s; 
-    studioIdCounter=s.length?Math.max(...s.map(b=>+b.id.replace('s','')))+1:1;
+    if(s && s.length > 0){
+      studioBookings=s; 
+      studioIdCounter=Math.max(...s.map(b=>+b.id.replace('s','')))+1;
+    } else {
+      // Pre-populate from CSV data
+      studioBookings = INITIAL_STUDIO_BOOKINGS.map((b,i)=>({...b, id:'s'+(i+1)}));
+      studioIdCounter = studioBookings.length + 1;
+      localStorage.setItem('ep_studio', JSON.stringify(studioBookings));
+    }
   } catch{ studioBookings=[]; } 
 }
 function saveStudio(){ localStorage.setItem('ep_studio', JSON.stringify(studioBookings)); saveAll(); }
