@@ -343,6 +343,7 @@
   <div class="tab active" onclick="showTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="showTab('calendar')">📆 Kalender</div>
   <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning</div>
+  <div class="tab" onclick="showTab('studio')">🎙 Studio</div>
 </div>
 
 <!-- ═══ TRACKER ═══ -->
@@ -1096,6 +1097,7 @@ function showTab(t){
   );
   if(t==='dashboard')renderDashboard();
   if(t==='calendar') renderCalendar();
+  if(t==='studio')    renderStudio();
 }
 
 // ── BRAND + YEAR FILTERS ──────────────────────────────────────
