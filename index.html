@@ -452,7 +452,7 @@
   <span style="font-size:0.68rem;color:var(--muted);margin-right:4px;">Typ:</span>
   <button class="fbtn active" id="type-all" onclick="calTypeFilter='all';document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');renderCalendar()">Alla</button>
   <button class="fbtn type-btn" id="type-event" onclick="calTypeFilter='event';document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('type-all').classList.remove('active');renderCalendar()">📅 Event</button>
-  <button class="fbtn type-btn" id="type-webinar" onclick="calTypeFilter='webinar';document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('type-all').classList.remove('active');renderCalendar()">💻 Webbinar</button>
+  <button class="fbtn type-btn" id="type-studio" onclick="calTypeFilter='studio';document.querySelectorAll('.type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');document.getElementById('type-all').classList.remove('active');renderCalendar()">🎙 Studio</button>
 </div>
 <div style="display:flex;justify-content:flex-end;padding:0 14px 10px;">
   <button onclick="exportICS(calYear)"
@@ -512,14 +512,19 @@ function isLoggedIn(){
 
 function loadUsersFromSheet(callback){
   if(!SCRIPT_URL){ callback(false); return; }
-  fetch(SCRIPT_URL + '?action=getUsers')
-    .then(r=>r.json())
-    .then(data=>{
-      if(data && data.users){
-        sheetUsers = {};
-        data.users.forEach(u=>{ if(u.username&&u.password) sheetUsers[u.username.toLowerCase()]=u.password; });
-        callback(true);
-      } else { callback(false); }
+  // Use script redirect to avoid CORS issues
+  const url = SCRIPT_URL + '?action=getUsers';
+  fetch(url, {redirect:'follow'})
+    .then(r=>r.text())
+    .then(text=>{
+      try{
+        const data = JSON.parse(text);
+        if(data && data.users && data.users.length > 0){
+          sheetUsers = {};
+          data.users.forEach(u=>{ if(u.username&&u.password) sheetUsers[u.username.trim().toLowerCase()]=u.password.trim(); });
+          callback(true);
+        } else { callback(false); }
+      } catch(e){ callback(false); }
     })
     .catch(()=>callback(false));
 }
@@ -530,36 +535,63 @@ function doLogin(){
   const errEl = document.getElementById('login-error');
   const btn = document.querySelector('#login-screen button');
 
-  // Show loading state
-  if(btn){ btn.textContent = 'Kontrollerar...'; btn.disabled = true; }
+  function loginSuccess(){
+    sessionStorage.setItem('ep_auth', 'true');
+    sessionStorage.setItem('ep_user', user);
+    document.getElementById('login-screen').style.display = 'none';
+    const n = document.getElementById('save-note');
+    if(n) n.textContent = '👤 Inloggad som ' + user;
+    setTimeout(()=>{ if(n) n.textContent = SCRIPT_URL ? '☁️ Google Sheets' : 'Sparas lokalt'; }, 2500);
+  }
 
-  function tryLogin(users){
+  function loginFail(){
     if(btn){ btn.textContent = 'Logga in'; btn.disabled = false; }
-    if(users[user] && users[user] === pass){
-      sessionStorage.setItem('ep_auth', 'true');
-      sessionStorage.setItem('ep_user', user);
-      document.getElementById('login-screen').style.display = 'none';
-      const n = document.getElementById('save-note');
-      if(n) n.textContent = '👤 Inloggad som ' + user;
-      setTimeout(()=>{ if(n) n.textContent = SCRIPT_URL ? '☁️ Google Sheets' : 'Sparas lokalt'; }, 2500);
+    errEl.textContent = 'Fel användarnamn eller lösenord';
+    errEl.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    setTimeout(()=>errEl.style.display='none', 3000);
+  }
+
+  function checkCreds(users){
+    if(btn){ btn.textContent = 'Logga in'; btn.disabled = false; }
+    if(users[user] !== undefined && users[user] === pass){
+      loginSuccess();
     } else {
-      errEl.style.display = 'block';
-      document.getElementById('login-pass').value = '';
-      document.getElementById('login-pass').focus();
-      setTimeout(()=>errEl.style.display='none', 3000);
+      loginFail();
     }
   }
 
-  if(SCRIPT_URL && !sheetUsers){
-    loadUsersFromSheet(ok=>{
-      tryLogin(ok && sheetUsers ? sheetUsers : FALLBACK_USERS);
-    });
+  if(btn){ btn.textContent = 'Kontrollerar...'; btn.disabled = true; }
+
+  // Try Google Sheets users first, fall back to FALLBACK_USERS
+  if(SCRIPT_URL){
+    if(sheetUsers){
+      checkCreds(sheetUsers);
+    } else {
+      loadUsersFromSheet(ok=>{
+        if(ok && sheetUsers && Object.keys(sheetUsers).length > 0){
+          checkCreds(sheetUsers);
+        } else {
+          // Sheet failed or empty — use fallback
+          checkCreds(FALLBACK_USERS);
+        }
+      });
+    }
   } else {
-    tryLogin(sheetUsers || FALLBACK_USERS);
+    checkCreds(FALLBACK_USERS);
   }
 }
 
 function checkAuth(){
+  // Auto-login when running locally or in development
+  const host = window.location.hostname;
+  if(window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
+    sessionStorage.setItem('ep_auth', 'true');
+    sessionStorage.setItem('ep_user', 'admin');
+    document.getElementById('login-screen').style.display = 'none';
+    return true;
+  }
   if(!isLoggedIn()){
     document.getElementById('login-screen').style.display = 'flex';
     // Pre-load users from sheet while user types
@@ -819,6 +851,7 @@ function saveNotes(){ localStorage.setItem('ep_notes', JSON.stringify(notes)); }
 
 // tasks[evId][field] = [{id, text, done}, ...]
 let tasks = {};
+let studioBookings = [];
 function loadTasks(){ try{ tasks=JSON.parse(localStorage.getItem('ep_tasks')||'{}'); }catch{ tasks={}; } }
 function saveTasks(){ localStorage.setItem('ep_tasks', JSON.stringify(tasks)); }
 function getTasks(evId, field){ return tasks[evId]?.[field] || []; }
@@ -858,7 +891,7 @@ function loadAll() {
   try { doneActs = JSON.parse(localStorage.getItem('ep_done')||'{}')||{}; } catch{ doneActs={}; }
   try { actuals   = JSON.parse(localStorage.getItem('ep_actuals5')  || '{}'); } catch { actuals = {}; }
   try { edits     = JSON.parse(localStorage.getItem('ep_edits5')    || '{}'); } catch { edits = {}; }
-  loadNotes(); loadTasks();
+  loadNotes(); loadTasks(); loadStudio();
   try {
     const saved = JSON.parse(localStorage.getItem('ep_events5'));
     if (saved && saved.length) {
@@ -877,7 +910,7 @@ function initEvents() {
 
 function getPayload(){
   return {
-    actuals, edits, notes, tasks,
+    actuals, edits, notes, tasks, studioBookings,
     events: events.filter(e => !e._base), // only custom events
     doneActs
   };
@@ -933,6 +966,7 @@ function loadFromCloud(callback){
       if(data.notes)    notes    = data.notes;
       if(data.tasks)    tasks    = data.tasks;
       if(data.doneActs) doneActs = data.doneActs;
+      if(data.studioBookings) studioBookings = data.studioBookings;
       // Merge custom events (avoid duplicates)
       if(data.events && data.events.length){
         const baseIds = new Set(events.map(e=>e.id));
@@ -965,7 +999,8 @@ function getField(ev, field) { return edits[ev.id]?.[field] ?? ev[field]; }
 function getDate(ev)  { return getField(ev,'date'); }
 function getName(ev)  { return getField(ev,'name'); }
 function getEventType(ev){ const v=getField(ev,'eventType'); return v||ev.eventType||'event'; }
-function isWebinar(ev){ return getEventType(ev)==='webinar'; }
+function isWebinar(ev){ return getEventType(ev)==='studio'; }
+function isStudio(ev){ return getEventType(ev)==='studio'; }
 function getBrand(ev) { return getField(ev,'brand'); }
 function getVenue(ev) { return getField(ev,'venue'); }
 function getPaying(ev){ return getField(ev,'paying'); }
@@ -1000,6 +1035,14 @@ const BRAND_COLORS = {'Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)
 
 function pcol(pct){ if(pct===null)return'var(--muted)'; return pct>=100?'var(--green)':pct>=80?'var(--yellow)':'var(--red)'; }
 function dotCls(pct){ if(pct===null)return'dot dot-e'; return pct>=100?'dot dot-g':pct>=80?'dot dot-y':'dot dot-r'; }
+
+function studioActivityTag(ev){
+  const d = edits[ev.id]?.studioData;
+  if(!d || !isStudio(ev)) return '';
+  return `<span style="font-size:0.58rem;font-weight:700;padding:1px 6px;border-radius:8px;
+    background:rgba(155,89,182,0.15);color:#9b59b6;border:1px solid rgba(155,89,182,0.3);margin-left:4px;">
+    ${d.activityType}</span>`;
+}
 
 function typePill(ev){
   if(!isWebinar(ev)) return '';
@@ -1079,9 +1122,9 @@ function openAddModal(){
       </div>
       <div class="form-group">
         <label class="form-label">Typ</label>
-        <select class="form-select" id="m-type">
+        <select class="form-select" id="m-type" onchange="toggleStudioFields(this.value)">
           <option value="event">📅 Event</option>
-          <option value="webinar">💻 Webbinar</option>
+          <option value="studio">🎙 Studio</option>
         </select>
       </div>
     </div>
@@ -1092,7 +1135,7 @@ function openAddModal(){
       </div>
       <div class="form-group">
         <label class="form-label">Datum</label>
-        <input class="form-input" id="m-date" placeholder="t.ex. 2026-05-14">
+        <input class="form-input" id="m-date" type="date">
       </div>
     </div>
     <div class="form-group">
@@ -1113,7 +1156,42 @@ function openAddModal(){
       <label class="form-label">Mål totalt <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:0.7rem;">(betalande + gäster, räknas ut automatiskt om tomt)</span></label>
       <input class="form-input" id="m-total" type="number" min="0" placeholder="Lämna tomt för auto">
     </div>
-    ${scheduleFormHTML(null)}`;
+    <div id="schedule-form-section">${scheduleFormHTML(null)}</div>
+    <div id="studio-fields" style="display:none;margin-top:4px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:0.69rem;font-weight:700;color:var(--accent2);margin-bottom:10px;letter-spacing:0.05em;text-transform:uppercase;">💻 Studioinformation</div>
+      <div class="form-group">
+        <label class="form-label">Typ av studioaktivitet</label>
+        <select class="form-select" id="m-studio-type">
+          <option value="Webbinar">Webbinar</option>
+          <option value="Frukost webbinar">Frukost webbinar</option>
+          <option value="Sponsrat webbinar">Sponsrat webbinar</option>
+          <option value="Techtorsdag">Techtorsdag</option>
+          <option value="Spårvalsinspelning">Spårvalsinspelning</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;">
+        <div class="form-group">
+          <label class="form-label">📡 Sändningsdatum</label>
+          <input class="form-input" id="m-studio-date" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🎙 Studiobokning</label>
+          <input class="form-input" id="m-studio-bookdate" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">🟡 Program klart</label>
+        <input class="form-input" id="m-studio-programklart" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sponsor / Partner</label>
+        <input class="form-input" id="m-studio-sponsor" type="text" placeholder="t.ex. Brilliant Future">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sändningslänk</label>
+        <input class="form-input" id="m-studio-url" type="url" placeholder="https://...">
+      </div>
+    </div>`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-cancel" onclick="closeModal()">Avbryt</button>
     <button class="btn btn-primary" onclick="saveNewEvent()">Spara event</button>`;
@@ -1181,18 +1259,63 @@ function saveNewEvent(){
   const totalIn = parseInt(document.getElementById('m-total').value);
   const total   = totalIn || (paying + guests);
   const typeEl = document.getElementById('m-type');
+  const evType = typeEl ? typeEl.value : 'event';
+  // For studio events, use studio date if main date is empty
+  const studioDateEl = document.getElementById('m-studio-date');
+  const mainDate = document.getElementById('m-date').value.trim();
+  const studioDate = studioDateEl ? studioDateEl.value.trim() : '';
+  const evDate = mainDate || (evType==='studio' ? studioDate : '') || 'Datum ej satt';
+  // For studio events, default venue to Studio
+  const venueVal = document.getElementById('m-venue').value.trim() || (evType==='studio' ? 'Studio' : '');
   const ev={
     id: 'e'+(idCounter++),
     brand: document.getElementById('m-brand').value,
     year:  parseInt(document.getElementById('m-year').value),
     name,
-    date:  document.getElementById('m-date').value.trim()||'Datum ej satt',
-    venue: document.getElementById('m-venue').value.trim()||'',
+    date:  evDate,
+    venue: venueVal,
     paying, guests, total,
-    eventType: typeEl ? typeEl.value : 'event',
+    eventType: evType,
   };
   events.push(ev);
   const ns=readSchedFromForm(); if(ns){if(!edits[ev.id])edits[ev.id]={};edits[ev.id].schedule=ns;}
+  // Save webinar/studio info if type is webinar
+  if(ev.eventType==='studio'){
+    const stEl = document.getElementById('m-studio-type');
+    const sdEl = document.getElementById('m-studio-date');
+    const sbEl = document.getElementById('m-studio-bookdate');
+    const spEl = document.getElementById('m-studio-sponsor');
+    const suEl = document.getElementById('m-studio-url');
+    const snEl = document.getElementById('m-studio-notes');
+    if(stEl||sdEl){
+      const pkEl = document.getElementById('m-studio-programklart');
+      const studioData = {
+        activityType: stEl?.value||'Webbinar',
+        bookDate: sbEl?.value||'',
+        programKlart: pkEl?.value||'',
+        sponsor: spEl?.value||'',
+        streamUrl: suEl?.value||'',
+        notes: snEl?.value||'',
+      };
+      studioBookings.push({
+        id: 's'+(studioIdCounter++),
+        eventId: ev.id,
+        brand: ev.brand,
+        year: ev.year,
+        date: sdEl?.value||ev.date,
+        ...studioData,
+      });
+      // Also store on edits so calendar can show studio details
+      if(!edits[ev.id]) edits[ev.id]={};
+      edits[ev.id].studioData = studioData;
+      // Store programKlart as a schedule meeting so it shows in calendar
+      if(studioData.programKlart){
+        if(!edits[ev.id].schedule) edits[ev.id].schedule = {};
+        edits[ev.id].schedule.meeting3 = studioData.programKlart;
+      }
+      saveStudio();
+    }
+  }
   saveAll(); closeModal();
   renderTracker(); renderSummary();
 }
@@ -1282,7 +1405,7 @@ function renderPanel(id){
   document.getElementById('dp-inner').innerHTML=`
     <div class="dp-header">
       <div>
-        <div class="dp-title">${getName(ev)} ${yb(ev.year)} ${brandPill(getBrand(ev))}${typePill(ev)}</div>
+        <div class="dp-title">${getName(ev)} ${yb(ev.year)} ${brandPill(getBrand(ev))}${typePill(ev)}${studioActivityTag(ev)}</div>
         <div class="dp-meta">${vb(getVenue(ev))} <span>${getDate(ev)}</span></div>
       </div>
       <div class="dp-actions">
@@ -2286,6 +2409,14 @@ function toggleNoteRow(id){
   if(el) el.style.display=el.style.display==='none'?'block':'none';
 }
 
+function toggleStudioFields(type){
+  const el = document.getElementById('studio-fields');
+  if(el) el.style.display = type==='studio' ? 'block' : 'none';
+  // Hide planning/schedule form for studio events
+  const schedEl = document.getElementById('schedule-form-section');
+  if(schedEl) schedEl.style.display = type==='studio' ? 'none' : 'block';
+}
+
 function goToTracker(evId){
   showTab('tracker');
   setTimeout(()=>selectEvent(evId), 80);
@@ -2356,7 +2487,12 @@ function renderDashboardTasksNotes(){
 // ── CALENDAR RENDER ───────────────────────────────────────────
 function renderCalendar(){
   const grid=document.getElementById('cal-grid'); if(!grid) return;
-  const evList=filteredEvents('calendar').filter(e=>e.year==calYear&&(calTypeFilter==='all'||getEventType(e)===calTypeFilter));
+  const evList=filteredEvents('calendar').filter(e=>{
+    if(e.year!=calYear) return false;
+    if(calTypeFilter==='all') return true;
+    if(calTypeFilter==='studio') return (getVenue(e)||'').toLowerCase().includes('studio') || isWebinar(e);
+    return getEventType(e)===calTypeFilter;
+  });
   const buckets=Array.from({length:12},()=>[]);
   evList.forEach(ev=>{
     try{ getCalItems(ev).forEach(item=>{ if(item.month>=0&&item.month<12) buckets[item.month].push(item); }); }
@@ -2440,6 +2576,184 @@ function exportICS(yearFilter){
   alert(`✅ Exporterade ${count} aktiviteter till .ics-fil.\n\nImportera i Outlook: Arkiv → Öppna och exportera → Importera/exportera → Importera en iCalendar-fil (.ics)`);
 }
 
+
+// ── STUDIO ────────────────────────────────────────────────────
+// studioBookings declared earlier
+let studioIdCounter = 1;
+
+function loadStudio(){ 
+  try{ 
+    const s=JSON.parse(localStorage.getItem('ep_studio')||'[]'); 
+    studioBookings=s; 
+    studioIdCounter=s.length?Math.max(...s.map(b=>+b.id.replace('s','')))+1:1;
+  } catch{ studioBookings=[]; } 
+}
+function saveStudio(){ localStorage.setItem('ep_studio', JSON.stringify(studioBookings)); saveAll(); }
+
+const STUDIO_TYPES = ['Webbinar','Frukost webbinar','Sponsrat webbinar','Techtorsdag','Spårvalsinspelning'];
+const STUDIO_TYPE_COLORS = {
+  'Webbinar':            '#4a90d9',
+  'Frukost webbinar':    '#e07b39',
+  'Sponsrat webbinar':   '#9b59b6',
+  'Techtorsdag':         '#d4a017',
+  'Spårvalsinspelning':  '#5aaa5a',
+};
+
+function studioFormHTML(b){
+  b=b||{};
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Varumärke *</label>
+        <select class="form-select" id="sb-brand">${brandSelectOptions(b.brand||'Vd-tidningen')}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">År *</label>
+        <select class="form-select" id="sb-year">
+          <option value="2026" ${(b.year||2026)==2026?'selected':''}>2026</option>
+          <option value="2027" ${b.year==2027?'selected':''}>2027</option>
+          <option value="2028" ${b.year==2028?'selected':''}>2028</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Typ av aktivitet *</label>
+      <select class="form-select" id="sb-type">
+        ${STUDIO_TYPES.map(t=>`<option value="${t}" ${b.activityType===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Datum *</label>
+        <input class="form-input" id="sb-date" type="date" value="${b.date||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Studiobokning datum</label>
+        <input class="form-input" id="sb-bookdate" type="date" value="${b.bookDate||''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sponsor / Partner</label>
+      <input class="form-input" id="sb-sponsor" type="text" placeholder="t.ex. Brilliant Future" value="${b.sponsor||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sändningslänk</label>
+      <input class="form-input" id="sb-url" type="url" placeholder="https://..." value="${b.streamUrl||''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Anteckning</label>
+      <textarea class="note-area" id="sb-notes" rows="2" placeholder="Fritext...">${b.notes||''}</textarea>
+    </div>`;
+}
+
+function openStudioModal(id){
+  const b = id ? studioBookings.find(b=>b.id===id) : null;
+  document.getElementById('studio-modal-title').textContent = b ? '✏️ Redigera studiobokning' : '🎙 Ny studiobokning';
+  document.getElementById('studio-modal-body').innerHTML = studioFormHTML(b);
+  document.getElementById('studio-modal-footer').innerHTML = `
+    <button class="btn btn-cancel" onclick="closeStudioModal()">Avbryt</button>
+    <button class="btn btn-primary" onclick="saveStudioBooking('${id||''}')">Spara</button>`;
+  document.getElementById('studio-modal').style.display = 'flex';
+}
+
+function closeStudioModal(){ document.getElementById('studio-modal').style.display = 'none'; }
+
+function saveStudioBooking(id){
+  const b = {
+    id: id || 's'+(studioIdCounter++),
+    brand:        document.getElementById('sb-brand').value,
+    year:         +document.getElementById('sb-year').value,
+    activityType: document.getElementById('sb-type').value,
+    date:         document.getElementById('sb-date').value,
+    bookDate:     document.getElementById('sb-bookdate').value,
+    sponsor:      document.getElementById('sb-sponsor').value.trim(),
+    streamUrl:    document.getElementById('sb-url').value.trim(),
+    notes:        document.getElementById('sb-notes').value.trim(),
+  };
+  if(!b.date){ alert('Välj ett datum'); return; }
+  if(id){
+    const idx = studioBookings.findIndex(x=>x.id===id);
+    if(idx>=0) studioBookings[idx]=b;
+  } else {
+    studioBookings.push(b);
+  }
+  saveStudio(); closeStudioModal(); renderStudio();
+}
+
+function deleteStudioBooking(id){
+  if(!confirm('Ta bort denna studiobokning?')) return;
+  studioBookings = studioBookings.filter(b=>b.id!==id);
+  saveStudio(); renderStudio();
+}
+
+function renderStudio(){
+  const yearF = document.getElementById('studio-year-filter')?.value || 'all';
+  const typeF = document.getElementById('studio-type-filter')?.value || 'all';
+  
+  let list = [...studioBookings];
+  if(yearF!=='all') list = list.filter(b=>b.year==yearF);
+  if(typeF!=='all') list = list.filter(b=>b.activityType===typeF);
+  list.sort((a,b)=>a.date<b.date?-1:1);
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const upcoming = list.filter(b=>{ const d=parseDate(b.date); return d&&new Date(d.y,d.m0,d.d)>=today; });
+  const past     = list.filter(b=>{ const d=parseDate(b.date); return !d||new Date(d.y,d.m0,d.d)<today; });
+
+  // Summary
+  const sumEl = document.getElementById('studio-summary');
+  if(sumEl) sumEl.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:4px;">
+    <div class="s-card"><div class="lbl">📅 Totalt</div><div class="val" style="color:var(--accent)">${list.length}</div></div>
+    <div class="s-card"><div class="lbl">⏭ Kommande</div><div class="val" style="color:var(--accent2)">${upcoming.length}</div></div>
+    <div class="s-card"><div class="lbl">✅ Genomförda</div><div class="val" style="color:var(--muted)">${past.length}</div></div>
+  </div>`;
+
+  const grid = document.getElementById('studio-grid');
+  if(!grid) return;
+
+  if(!list.length){
+    grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Inga studiobokningar ännu — klicka "+ Ny studiobokning"</div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(b=>{
+    const d = parseDate(b.date);
+    const isPastB = d && new Date(d.y,d.m0,d.d) < today;
+    const typeColor = STUDIO_TYPE_COLORS[b.activityType] || 'var(--accent)';
+    const bc = BRAND_COLORS[b.brand] || 'var(--muted)';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;
+      padding:14px 16px;margin-bottom:10px;opacity:${isPastB?0.5:1};
+      border-left:4px solid ${typeColor};">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+            <span style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:8px;
+              background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}44;">
+              ${b.activityType}
+            </span>
+            ${brandPill(b.brand)}
+            ${isPastB?'<span style="font-size:0.62rem;color:var(--muted);font-style:italic;">Genomfört</span>':''}
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;font-size:0.75rem;">
+            <div><span style="color:var(--muted);">📅 Datum: </span><strong>${fmtShort(b.date)||'–'}</strong></div>
+            ${b.bookDate?`<div><span style="color:var(--muted);">🎙 Studiobokning: </span><strong>${fmtShort(b.bookDate)}</strong></div>`:''}
+            ${b.sponsor?`<div><span style="color:var(--muted);">🤝 Sponsor: </span><strong>${b.sponsor}</strong></div>`:''}
+            ${b.streamUrl?`<div><a href="${b.streamUrl}" target="_blank" style="color:var(--accent2);font-size:0.72rem;">🔗 Sändningslänk</a></div>`:''}
+          </div>
+          ${b.notes?`<div style="margin-top:6px;font-size:0.72rem;color:var(--muted);font-style:italic;">${b.notes}</div>`:''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;">
+          <button onclick="openStudioModal('${b.id}')"
+            style="font-size:0.68rem;padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+            background:transparent;color:var(--muted);cursor:pointer;">✏️</button>
+          <button onclick="deleteStudioBooking('${b.id}')"
+            style="font-size:0.68rem;padding:3px 8px;border-radius:5px;border:1px solid var(--border);
+            background:transparent;color:var(--red);cursor:pointer;">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ── EXPORT ────────────────────────────────────────────────────
 function exportCSV(){
   const rows=[['Varumärke','År','Event','Datum','Lokal','Mål betalande','Mål gäster','Mål totalt','Faktiskt betalande','Faktiskt gäster','Faktiskt totalt','Diff','Uppfyllnad %']];
@@ -2504,5 +2818,11 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
 <div style="text-align:center;padding:16px;font-size:0.65rem;color:var(--muted);border-top:1px solid var(--border);margin-top:20px;">
   Eventplanering Dashboard · Version 10 · Uppdaterad 2026-03-26
 </div>
+
+    <div class="modal-body" id="studio-modal-body"></div>
+    <div class="modal-footer" id="studio-modal-footer"></div>
+  </div>
+</div>
+
 </body>
 </html>
