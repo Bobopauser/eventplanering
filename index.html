@@ -2664,30 +2664,30 @@ const INITIAL_STUDIO_BOOKINGS = [
   }
 ];
 
+function resetStudioData(){
+  if(!confirm('Återställ all studiodata från originalfilen? Egna ändringar raderas.')) return;
+  localStorage.removeItem('ep_studio');
+  studioBookings = INITIAL_STUDIO_BOOKINGS.map((b,idx)=>({...b, id:'s'+(idx+1)}));
+  studioIdCounter = studioBookings.length + 1;
+  localStorage.setItem('ep_studio', JSON.stringify(studioBookings));
+  renderStudio();
+}
+
 function loadStudio(){ 
   try{ 
     const s=JSON.parse(localStorage.getItem('ep_studio')||'[]'); 
     if(s && s.length > 0){
-      studioBookings=s; 
-      studioIdCounter=Math.max(...s.map(b=>+b.id.replace('s','')))+1;
+      studioBookings = s; 
+      studioIdCounter = Math.max(...s.map(b=>+b.id.replace('s','')))+1;
     } else {
-      // Pre-populate from CSV data
-      studioBookings = INITIAL_STUDIO_BOOKINGS.map((b,i)=>({...b, id:'s'+(i+1)}));
+      // Pre-populate from CSV data on first load
+      studioBookings = INITIAL_STUDIO_BOOKINGS.map((b,idx)=>({...b, id:'s'+(idx+1)}));
       studioIdCounter = studioBookings.length + 1;
       localStorage.setItem('ep_studio', JSON.stringify(studioBookings));
     }
   } catch{ studioBookings=[]; } 
 }
-function saveStudio(){ localStorage.setItem('ep_studio', JSON.stringify(studioBookings)); saveAll(); }
 
-const STUDIO_TYPES = ['Webbinar','Frukost webbinar','Sponsrat webbinar','Techtorsdag','Spårvalsinspelning'];
-const STUDIO_TYPE_COLORS = {
-  'Webbinar':            '#4a90d9',
-  'Frukost webbinar':    '#e07b39',
-  'Sponsrat webbinar':   '#9b59b6',
-  'Techtorsdag':         '#d4a017',
-  'Spårvalsinspelning':  '#5aaa5a',
-};
 
 function studioFormHTML(b){
   b=b||{};
@@ -2922,6 +2922,9 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
       <button class="btn btn-primary" onclick="openStudioModal()" style="font-size:0.8rem;padding:7px 14px;">
         ＋ Ny studiobokning
+      </button>
+      <button onclick="resetStudioData()" style="font-size:0.75rem;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;" title="Återställ till CSV-data">
+        🔄 Återställ
       </button>
       <select class="form-select" id="studio-year-filter" style="width:auto;font-size:0.8rem;" onchange="renderStudio()">
         <option value="all">Alla år</option>
