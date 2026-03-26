@@ -494,7 +494,12 @@
   </div>
 </div>
 
-<script>
+<script>const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjjyyNT2sw0VS_K06iNpuUo8XBsTmOS7-5eUZaiVPeEsanQBZwx0H76RN1Iw3Kk56QFw/exec';
+const BRAND_COLORS = {'Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)','Miljö & Utveckling':'var(--mu)','Techtidningen':'var(--tech)'};
+const MONTHS_S = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
+const MONTHS   = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+
+
 
 // ── AUTH ──────────────────────────────────────────────────────
 // Users are managed in Google Sheets — fliken "Användare"
@@ -613,7 +618,6 @@ function logout(){
 // ════════════════════════════════════════════════════════════
 // 🔧 KONFIGURATION — klistra in din Google Apps Script URL här
 // ════════════════════════════════════════════════════════════
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjjyyNT2sw0VS_K06iNpuUo8XBsTmOS7-5eUZaiVPeEsanQBZwx0H76RN1Iw3Kk56QFw/exec';
 // ════════════════════════════════════════════════════════════
 
 
@@ -1031,7 +1035,6 @@ function getAT(id) { const p=getAP(id),f=getAF(id); return (p===null&&f===null)?
 
 // ── HELPERS ───────────────────────────────────────────────────
 const BRANDS = ['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen'];
-const BRAND_COLORS = {'Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)','Miljö & Utveckling':'var(--mu)','Techtidningen':'var(--tech)'};
 
 function pcol(pct){ if(pct===null)return'var(--muted)'; return pct>=100?'var(--green)':pct>=80?'var(--yellow)':'var(--red)'; }
 function dotCls(pct){ if(pct===null)return'dot dot-e'; return pct>=100?'dot dot-g':pct>=80?'dot dot-y':'dot dot-r'; }
@@ -1202,15 +1205,27 @@ function openAddModal(){
 function openEditModal(id){
   const ev=getEv(id);
   if(!ev)return;
-  document.getElementById('modal-title').textContent='✏️ Redigera event';
+  const isStudioEv = isStudio(ev);
+  const sd = edits[id]?.studioData || {};
+
+  document.getElementById('modal-title').textContent='✏️ Redigera – '+getName(ev);
   document.getElementById('modal-body').innerHTML=`
     <div class="form-group">
       <label class="form-label">Eventnamn *</label>
       <input class="form-input" id="m-name" value="${getName(ev)}" autofocus>
     </div>
-    <div class="form-group">
-      <label class="form-label">Varumärke *</label>
-      <select class="form-select" id="m-brand">${brandSelectOptions(getBrand(ev))}</select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Varumärke *</label>
+        <select class="form-select" id="m-brand">${brandSelectOptions(getBrand(ev))}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Typ</label>
+        <select class="form-select" id="m-type" onchange="toggleStudioFields(this.value)">
+          <option value="event" ${!isStudioEv?'selected':''}>📅 Event</option>
+          <option value="studio" ${isStudioEv?'selected':''}>🎙 Studio</option>
+        </select>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
@@ -1219,105 +1234,62 @@ function openEditModal(id){
       </div>
       <div class="form-group">
         <label class="form-label">Datum</label>
-        <input class="form-input" id="m-date" value="${getDate(ev)}">
+        <input class="form-input" id="m-date" type="date" value="${getDate(ev)!=='Datum ej satt'?getDate(ev):''}">
       </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Lokal</label>
-      <input class="form-input" id="m-venue" value="${getVenue(ev)||''}">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div class="form-group">
-        <label class="form-label">Mål betalande</label>
-        <input class="form-input" id="m-paying" type="number" min="0" value="${getPaying(ev)}">
+        <label class="form-label">Lokal</label>
+        <input class="form-input" id="m-venue" value="${getVenue(ev)}">
+      </div>
+    </div>
+
+    <!-- Schedule form (hidden for studio) -->
+    <div id="schedule-form-section" style="${isStudioEv?'display:none':''}">
+      ${scheduleFormHTML(getSched(ev))}
+    </div>
+
+    <!-- Studio fields (hidden for event) -->
+    <div id="studio-fields" style="${isStudioEv?'display:block':'display:none'};margin-top:4px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:0.69rem;font-weight:700;color:var(--accent2);margin-bottom:10px;letter-spacing:0.05em;text-transform:uppercase;">💻 Studioinformation</div>
+      <div class="form-group">
+        <label class="form-label">Typ av studioaktivitet</label>
+        <select class="form-select" id="m-studio-type">
+          <option value="Webbinar" ${(sd.activityType||'')==='Webbinar'?'selected':''}>Webbinar</option>
+          <option value="Frukost webbinar" ${(sd.activityType||'')==='Frukost webbinar'?'selected':''}>Frukost webbinar</option>
+          <option value="Sponsrat webbinar" ${(sd.activityType||'')==='Sponsrat webbinar'?'selected':''}>Sponsrat webbinar</option>
+          <option value="Techtorsdag" ${(sd.activityType||'')==='Techtorsdag'?'selected':''}>Techtorsdag</option>
+          <option value="Spårvalsinspelning" ${(sd.activityType||'')==='Spårvalsinspelning'?'selected':''}>Spårvalsinspelning</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;">
+        <div class="form-group">
+          <label class="form-label">📡 Sändningsdatum</label>
+          <input class="form-input" id="m-studio-date" type="date" value="${sd.date||getDate(ev)||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">🎙 Studiobokning</label>
+          <input class="form-input" id="m-studio-bookdate" type="date" value="${sd.bookDate||''}">
+        </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Mål gäster (fria)</label>
-        <input class="form-input" id="m-guests" type="number" min="0" value="${getGuests(ev)}">
+        <label class="form-label">🟡 Program klart</label>
+        <input class="form-input" id="m-studio-programklart" type="date" value="${sd.programKlart||''}">
       </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Mål totalt <span style="color:var(--muted);font-weight:400;text-transform:none;font-size:0.7rem;">(betalande + gäster, räknas ut automatiskt om tomt)</span></label>
-      <input class="form-input" id="m-total" type="number" min="0" value="${getTotal(ev)}" placeholder="Lämna tomt för auto">
-    </div>
-    ${scheduleFormHTML(getSched(ev))}`;
+      <div class="form-group">
+        <label class="form-label">Sponsor / Partner</label>
+        <input class="form-input" id="m-studio-sponsor" type="text" placeholder="t.ex. Brilliant Future" value="${sd.sponsor||''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sändningslänk</label>
+        <input class="form-input" id="m-studio-url" type="url" placeholder="https://..." value="${sd.streamUrl||''}">
+      </div>
+    </div>`;
+
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-cancel" onclick="closeModal()">Avbryt</button>
-    <button class="btn btn-primary" onclick="saveEditEvent('${id}')">Spara ändringar</button>`;
+    <button class="btn btn-primary" onclick="saveEditEvent('${id}')">Spara</button>`;
   document.getElementById('modal').style.display='flex';
-  setTimeout(()=>document.getElementById('m-name').focus(),50);
-}
-
-function closeModal(){ document.getElementById('modal').style.display='none'; }
-function closeModalBg(e){ if(e.target===document.getElementById('modal'))closeModal(); }
-
-function saveNewEvent(){
-  const name=document.getElementById('m-name').value.trim();
-  if(!name){ alert('Ange ett eventnamn'); return; }
-  const paying  = parseInt(document.getElementById('m-paying').value)||0;
-  const guests  = parseInt(document.getElementById('m-guests').value)||0;
-  const totalIn = parseInt(document.getElementById('m-total').value);
-  const total   = totalIn || (paying + guests);
-  const typeEl = document.getElementById('m-type');
-  const evType = typeEl ? typeEl.value : 'event';
-  // For studio events, use studio date if main date is empty
-  const studioDateEl = document.getElementById('m-studio-date');
-  const mainDate = document.getElementById('m-date').value.trim();
-  const studioDate = studioDateEl ? studioDateEl.value.trim() : '';
-  const evDate = mainDate || (evType==='studio' ? studioDate : '') || 'Datum ej satt';
-  // For studio events, default venue to Studio
-  const venueVal = document.getElementById('m-venue').value.trim() || (evType==='studio' ? 'Studio' : '');
-  const ev={
-    id: 'e'+(idCounter++),
-    brand: document.getElementById('m-brand').value,
-    year:  parseInt(document.getElementById('m-year').value),
-    name,
-    date:  evDate,
-    venue: venueVal,
-    paying, guests, total,
-    eventType: evType,
-  };
-  events.push(ev);
-  const ns=readSchedFromForm(); if(ns){if(!edits[ev.id])edits[ev.id]={};edits[ev.id].schedule=ns;}
-  // Save webinar/studio info if type is webinar
-  if(ev.eventType==='studio'){
-    const stEl = document.getElementById('m-studio-type');
-    const sdEl = document.getElementById('m-studio-date');
-    const sbEl = document.getElementById('m-studio-bookdate');
-    const spEl = document.getElementById('m-studio-sponsor');
-    const suEl = document.getElementById('m-studio-url');
-    const snEl = document.getElementById('m-studio-notes');
-    if(stEl||sdEl){
-      const pkEl = document.getElementById('m-studio-programklart');
-      const studioData = {
-        activityType: stEl?.value||'Webbinar',
-        bookDate: sbEl?.value||'',
-        programKlart: pkEl?.value||'',
-        sponsor: spEl?.value||'',
-        streamUrl: suEl?.value||'',
-        notes: snEl?.value||'',
-      };
-      studioBookings.push({
-        id: 's'+(studioIdCounter++),
-        eventId: ev.id,
-        brand: ev.brand,
-        year: ev.year,
-        date: sdEl?.value||ev.date,
-        ...studioData,
-      });
-      // Also store on edits so calendar can show studio details
-      if(!edits[ev.id]) edits[ev.id]={};
-      edits[ev.id].studioData = studioData;
-      // Store programKlart as a schedule meeting so it shows in calendar
-      if(studioData.programKlart){
-        if(!edits[ev.id].schedule) edits[ev.id].schedule = {};
-        edits[ev.id].schedule.meeting3 = studioData.programKlart;
-      }
-      saveStudio();
-    }
-  }
-  saveAll(); closeModal();
-  renderTracker(); renderSummary();
 }
 
 function saveEditEvent(id){
@@ -1776,8 +1748,6 @@ function renderDashboard(){
 }
 
 // ── CALENDAR ──────────────────────────────────────────────────
-const MONTHS_S = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
-const MONTHS   = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
 
 function setCalYear(y, btn){
   calYear = y;
@@ -1993,10 +1963,10 @@ function renderCalItem(item){
 
         <!-- Bottom buttons -->
         <div style="display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;">
-          <button onclick="event.stopPropagation();openScheduleModal('${ev.id}')"
+          <button onclick="event.stopPropagation();openEditModal('${ev.id}')"
             style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);
             background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;">
-            ✏️ Redigera planering
+            ✏️ Redigera
           </button>
           <button onclick="event.stopPropagation();goToTracker('${ev.id}')"
             style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent2);
@@ -2012,7 +1982,13 @@ function renderCalItem(item){
       transition:background 0.15s;"
       onclick="event.stopPropagation();toggleCalEvent('${ev.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
-        <div style="font-size:0.79rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.label}</div>
+        <div style="display:flex;align-items:center;gap:5px;min-width:0;flex:1;">
+          <div style="font-size:0.79rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.label}</div>
+          <button onclick="event.stopPropagation();openEditModal('${ev.id}')"
+            title="Redigera event"
+            style="flex-shrink:0;font-size:0.65rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);
+            background:transparent;color:var(--muted);cursor:pointer;line-height:1.4;">✏️</button>
+        </div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
           ${ev ? yb(ev.year) : ''}
           <span style="font-size:0.7rem;color:var(--muted);transition:transform 0.2s;display:inline-block;transform:rotate(${isOpen?'90':'0'}deg);">▶</span>
@@ -2326,7 +2302,18 @@ function saveSchedModal(id){
 }
 
 // ── NOTES + TASKS MODALS ──────────────────────────────────────
-function closeNotesModal(){ document.getElementById('notes-modal').style.display='none'; }
+function closeModal(){
+  const el = document.getElementById('modal');
+  if(el) el.style.display = 'none';
+}
+function closeModalBg(e){
+  if(e.target === document.getElementById('modal')) closeModal();
+}
+
+function _closeModal_removed(){ // duplicate guard handled by JS hoisting
+  const el = document.getElementById('modal');
+  if(el) el.style.display = 'none';
+}{ document.getElementById('notes-modal').style.display='none'; }
 function closeNotesBg(e){ if(e.target===document.getElementById('notes-modal')) closeNotesModal(); }
 
 const PRIO = {
@@ -2687,6 +2674,7 @@ function deleteStudioBooking(id){
 }
 
 function renderStudio(){
+  if(!document.getElementById('studio-grid')) return;
   const yearF = document.getElementById('studio-year-filter')?.value || 'all';
   const typeF = document.getElementById('studio-type-filter')?.value || 'all';
   
@@ -2819,6 +2807,46 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
   Eventplanering Dashboard · Version 10 · Uppdaterad 2026-03-26
 </div>
 
+    <div class="modal-body" id="studio-modal-body"></div>
+    <div class="modal-footer" id="studio-modal-footer"></div>
+  </div>
+</div>
+
+
+<!-- ═══ STUDIO ═══ -->
+<div class="content" id="tab-studio" style="display:none;">
+  <div style="padding:14px 14px 0;" id="studio-summary"></div>
+  <div style="padding:14px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+      <button class="btn btn-primary" onclick="openStudioModal()" style="font-size:0.8rem;padding:7px 14px;">
+        ＋ Ny studiobokning
+      </button>
+      <select class="form-select" id="studio-year-filter" style="width:auto;font-size:0.8rem;" onchange="renderStudio()">
+        <option value="all">Alla år</option>
+        <option value="2026" selected>2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+      </select>
+      <select class="form-select" id="studio-type-filter" style="width:auto;font-size:0.8rem;" onchange="renderStudio()">
+        <option value="all">Alla typer</option>
+        <option value="Webbinar">Webbinar</option>
+        <option value="Frukost webbinar">Frukost webbinar</option>
+        <option value="Sponsrat webbinar">Sponsrat webbinar</option>
+        <option value="Techtorsdag">Techtorsdag</option>
+        <option value="Spårvalsinspelning">Spårvalsinspelning</option>
+      </select>
+    </div>
+    <div id="studio-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ STUDIO MODAL ═══ -->
+<div class="modal-bg" id="studio-modal" style="display:none;" onclick="if(event.target===this)closeStudioModal()">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 id="studio-modal-title">🎙 Ny studiobokning</h3>
+      <button class="modal-close" onclick="closeStudioModal()">✕</button>
+    </div>
     <div class="modal-body" id="studio-modal-body"></div>
     <div class="modal-footer" id="studio-modal-footer"></div>
   </div>
