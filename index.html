@@ -344,6 +344,7 @@
   <div class="tab active" onclick="showTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="showTab('calendar')">📆 Kalender</div>
   <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning</div>
+  <div class="tab" onclick="showTab('details')">📋 Eventinfo</div>
 </div>
 
 <!-- ═══ TRACKER ═══ -->
@@ -478,6 +479,20 @@
       onmouseover="this.style.borderColor='var(--muted)'" onmouseout="this.style.borderColor='var(--border)'">
       📅 Exportera till Outlook
     </button>
+  </div>
+</div>
+<div style="padding:6px 14px 10px;display:flex;align-items:center;gap:8px;position:relative;">
+  <button onclick="toggleMonthPicker(event)"
+    style="font-size:0.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--accent);
+    background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;">
+    📅 Gå till månad
+  </button>
+  <div id="month-picker" style="display:none;position:absolute;top:36px;left:14px;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:999;width:220px;">
+    <div style="font-size:0.68rem;color:var(--muted);font-weight:700;text-transform:uppercase;
+      letter-spacing:0.05em;margin-bottom:10px;text-align:center;">Välj månad</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="month-picker-grid"></div>
   </div>
 </div>
 <div id="cal-grid"></div>
@@ -1001,6 +1016,8 @@ function loadFromCloud(callback){
       if(data.tasks)    tasks    = data.tasks;
       if(data.doneActs) doneActs = data.doneActs;
       if(data.studioBookings) studioBookings = data.studioBookings;
+      // Restore event info from edits
+      events.forEach(ev=>{ if(edits[ev.id]?.info){ localStorage.setItem('ep_info_'+ev.id, JSON.stringify(edits[ev.id].info)); } });
       // Merge custom events (avoid duplicates)
       if(data.events && data.events.length){
         const baseIds = new Set(events.map(e=>e.id));
@@ -1107,16 +1124,17 @@ function yearOptions(selected) {
 
 // ── TABS ──────────────────────────────────────────────────────
 function showTab(t){
-  ['tracker','dashboard','calendar'].forEach(id=>{
+  ['tracker','dashboard','calendar','details'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el) el.style.display=id===t?'':'none';
   });
   document.querySelectorAll('.tab').forEach((el,i)=>
-    el.classList.toggle('active',['dashboard','calendar','tracker'][i]===t)
+    el.classList.toggle('active',['dashboard','calendar','tracker','details'][i]===t)
   );
   if(t==='dashboard')renderDashboard();
   if(t==='calendar') renderCalendar();
   if(t==='tracker')  renderTracker();
+  if(t==='details')  renderDetails();
 }
 
 // ── BRAND + YEAR FILTERS ──────────────────────────────────────
@@ -1343,7 +1361,7 @@ function saveEditEvent(id){
   const venueEl = document.getElementById('m-venue');
   const yearEl  = document.getElementById('m-year');
   if(brandEl) edits[id].brand = brandEl.value;
-  if(dateEl)  edits[id].date  = dateEl.value.trim();
+  if(dateEl)  edits[id].date  = dateEl.value.trim() || 'Datum ej satt';
   if(venueEl) edits[id].venue = venueEl.value.trim();
   if(paying)  edits[id].paying = paying;
   if(guests)  edits[id].guests = guests;
@@ -1472,8 +1490,8 @@ function renderPanel(id){
           <div class="inp-row">
             <input class="inp-field ${am!==null?'filled':''}" type="number" min="0"
               placeholder="0" value="${am!==null?am:''}"
-              oninput="updateField('${id}','manual',this.value)"
-              onchange="updateField('${id}','manual',this.value)">
+              onblur="updateField('${id}','manual',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()">
             <div class="inp-goal">Mål: <span>${goalManual}</span></div>
           </div>
           <div class="inp-hint" style="color:${am!==null?(am>=goalManual?'var(--green)':'var(--yellow)'):'var(--muted)'}">
@@ -1486,8 +1504,8 @@ function renderPanel(id){
           <div class="inp-row">
             <input class="inp-field ${ad!==null?'filled':''}" type="number" min="0"
               placeholder="0" value="${ad!==null?ad:''}"
-              oninput="updateField('${id}','digital',this.value)"
-              onchange="updateField('${id}','digital',this.value)">
+              onblur="updateField('${id}','digital',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()">
             <div class="inp-goal">Mål: <span>${goalDigital}</span></div>
           </div>
           <div class="inp-hint" style="color:${ad!==null?(ad>=goalDigital?'var(--green)':'var(--yellow)'):'var(--muted)'}">
@@ -1500,8 +1518,8 @@ function renderPanel(id){
           <div class="inp-row">
             <input class="inp-field ${ap!==null?'filled':''}" type="number" min="0"
               placeholder="0" value="${ap!==null?ap:''}"
-              oninput="updateField('${id}','paying',this.value)"
-              onchange="updateField('${id}','paying',this.value)">
+              onblur="updateField('${id}','paying',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()">
             <div class="inp-goal">Mål: <span>${goalPaying}</span></div>
           </div>
           <div class="inp-hint" style="color:${ap!==null?(ap>=goalPaying?'var(--green)':'var(--yellow)'):'var(--muted)'}">
@@ -1514,8 +1532,8 @@ function renderPanel(id){
           <div class="inp-row">
             <input class="inp-field ${af!==null?'filled':''}" type="number" min="0"
               placeholder="0" value="${af!==null?af:''}"
-              oninput="updateField('${id}','free',this.value)"
-              onchange="updateField('${id}','free',this.value)">
+              onblur="updateField('${id}','free',this.value)"
+              onkeydown="if(event.key==='Enter')this.blur()">
             <div class="inp-goal">Mål: <span>${goalGuests!==null?goalGuests:'–'}</span></div>
           </div>
           <div class="inp-hint" style="color:${af!==null?(goalGuests?(af>=goalGuests?'var(--green)':'var(--yellow)'):'var(--muted)'):'var(--muted)'}">
@@ -1543,8 +1561,20 @@ function updateField(id,field,value){
     if(m!=null && d!=null) actuals[id].paying = m+d;
   }
   saveAll();
-  if(selectedId===id) renderPanel(id);
-  refreshRow(id);
+  if(selectedId===id){
+    // Only update the result section, not the whole panel (avoids losing focus)
+    renderSummary();
+    refreshRow(id);
+    // Update just the hint texts and result values without full re-render
+    updatePanelStats(id);
+  } else {
+    refreshRow(id);
+  }
+}
+
+function updatePanelStats(id){
+  // Re-render the full panel since no input is focused at this point (called on blur)
+  renderPanel(id);
 }
 
 function refreshRow(id){
@@ -2439,6 +2469,72 @@ function goToTracker(evId){
   setTimeout(()=>selectEvent(evId), 80);
 }
 
+function toggleMonthPicker(e){
+  e.stopPropagation();
+  const el = document.getElementById('month-picker');
+  if(!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) renderMonthPickerGrid();
+}
+
+function renderMonthPickerGrid(){
+  const grid = document.getElementById('month-picker-grid');
+  if(!grid) return;
+  const currentMonth = new Date().getMonth();
+  grid.innerHTML = MONTHS_S.map((m, i) => {
+    const isCurrent = i === currentMonth;
+    return `<button onclick="scrollToMonth(${i});toggleMonthPicker(event)"
+      style="font-size:0.75rem;padding:6px 4px;border-radius:7px;cursor:pointer;
+      border:1px solid ${isCurrent?'var(--accent)':'var(--border)'};
+      background:${isCurrent?'rgba(108,99,255,0.15)':'var(--card2)'};
+      color:${isCurrent?'var(--accent)':'var(--text)'};
+      font-weight:${isCurrent?'700':'400'};
+      transition:all 0.15s;"
+      onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='${isCurrent?'var(--accent)':'var(--border)'}';this.style.color='${isCurrent?'var(--accent)':'var(--text)'}'">
+      ${m}${isCurrent?' •':''}
+    </button>`;
+  }).join('');
+}
+
+function scrollToMonth(monthIdx){
+  const cards = document.querySelectorAll('.month-title');
+  for(const card of cards){
+    if(card.textContent.trim() === MONTHS[monthIdx]){
+      const mc = card.closest('.month-card');
+      mc.scrollIntoView({behavior:'smooth', block:'start'});
+      mc.style.boxShadow = '0 0 0 2px var(--accent)';
+      setTimeout(()=>{ if(mc) mc.style.boxShadow=''; }, 1500);
+      return;
+    }
+  }
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', function(e){
+  const picker = document.getElementById('month-picker');
+  if(picker && !picker.contains(e.target)) picker.style.display='none';
+});
+
+function scrollToCurrentMonth(){
+  const m = new Date().getMonth(); // 0-indexed
+  const monthNames = ['Januari','Februari','Mars','April','Maj','Juni',
+                      'Juli','Augusti','September','Oktober','November','December'];
+  // Find the month card by title text
+  const cards = document.querySelectorAll('.month-title');
+  for(const card of cards){
+    if(card.textContent.trim() === monthNames[m]){
+      card.closest('.month-card').scrollIntoView({behavior:'smooth', block:'start'});
+      // Highlight briefly
+      const mc = card.closest('.month-card');
+      mc.style.boxShadow = '0 0 0 2px var(--accent)';
+      setTimeout(()=>mc.style.boxShadow='', 1500);
+      return;
+    }
+  }
+}
+
 function goToCalendarEvent(evId, year){
   calYear = +year;
   calOpenId = evId;
@@ -2577,9 +2673,15 @@ function importEventsFile(input){
 
       if(!rows || rows.length < 2){ alert('Filen verkar vara tom eller har fel format.'); return; }
 
-      // Find header row
-      const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
+      // Find actual header row — scan for row containing 'event' or 'datum'
+      let headerRowIdx = 0;
+      for(let ri=0; ri<Math.min(rows.length,5); ri++){
+        const r = rows[ri].map(h=>String(h||'').trim().toLowerCase());
+        if(r.some(h=>h==='event'||h==='datum'||h==='år')){ headerRowIdx=ri; break; }
+      }
+      const headers = rows[headerRowIdx].map(h => String(h||'').trim().toLowerCase());
       const col = name => headers.findIndex(h => h.includes(name));
+      const dataRows = rows.slice(headerRowIdx+1);
 
       const iDatum    = col('datum');
       const iEvent    = col('event');
@@ -2595,7 +2697,7 @@ function importEventsFile(input){
 
       let added = 0, updated = 0;
 
-      rows.slice(1).forEach(row => {
+      dataRows.forEach(row => {
         if(!row || !row[iEvent]) return;
         const name   = String(row[iEvent]).trim();
         const date   = parseDateVal(row[iDatum]);
@@ -2667,8 +2769,15 @@ function importStudioFile(input){
 
       if(!rows || rows.length < 2){ alert('Filen verkar vara tom eller har fel format.'); return; }
 
-      const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
+      // Find actual header row
+      let headerRowIdx2 = 0;
+      for(let ri=0; ri<Math.min(rows.length,5); ri++){
+        const r = rows[ri].map(h=>String(h||'').trim().toLowerCase());
+        if(r.some(h=>h==='aktivitet'||h==='datum'||h==='varumärke')){ headerRowIdx2=ri; break; }
+      }
+      const headers = rows[headerRowIdx2].map(h => String(h||'').trim().toLowerCase());
       const col = name => headers.findIndex(h => h.includes(name));
+      const dataRows2 = rows.slice(headerRowIdx2+1);
 
       const iDatum    = col('datum');
       const iBrand    = col('varumärke');
@@ -2679,7 +2788,7 @@ function importStudioFile(input){
 
       let added = 0, updated = 0;
 
-      rows.slice(1).forEach(row => {
+      dataRows2.forEach(row => {
         if(!row || !row[iAktiv]) return;
         const activityType = String(row[iAktiv]).trim();
         const date    = parseDateVal(row[iDatum]);
@@ -3111,6 +3220,239 @@ function syncStudioToCalendar(){
   });
 }
 
+
+// ── EVENTINFO ─────────────────────────────────────────────────
+let selectedDetailId = null;
+
+function getEventInfo(id){ 
+  return JSON.parse(localStorage.getItem('ep_info_'+id)||'{}');
+}
+function saveEventInfo(id, data){
+  localStorage.setItem('ep_info_'+id, JSON.stringify(data));
+  // Also persist via saveAll
+  if(!edits[id]) edits[id]={};
+  edits[id].info = data;
+  saveAll();
+}
+
+function renderDetailsList(){
+  const el = document.getElementById('details-list');
+  if(!el) return;
+  const q = (document.getElementById('details-search')?.value||'').toLowerCase();
+  const year = activeYear==='all' ? null : +activeYear;
+  let list = [...events]
+    .filter(e => !year || e.year===year)
+    .filter(e => !q || getName(e).toLowerCase().includes(q) || getBrand(e).toLowerCase().includes(q))
+    .sort((a,b)=>{ 
+      const da=parseDate(getDate(a)), db=parseDate(getDate(b));
+      if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1;
+      return new Date(da.y,da.m0,da.d)-new Date(db.y,db.m0,db.d);
+    });
+
+  el.innerHTML = list.map(ev=>{
+    const info = getEventInfo(ev.id);
+    const filled = Object.keys(info).filter(k=>info[k]!==''&&info[k]!==null&&info[k]!==undefined).length;
+    const bc = BRAND_COLORS[getBrand(ev)]||'var(--muted)';
+    const isSelected = ev.id === selectedDetailId;
+    return `<div onclick="openDetailPanel('${ev.id}')"
+      style="padding:9px 14px;cursor:pointer;border-left:3px solid ${isSelected?bc:'transparent'};
+      background:${isSelected?'rgba(108,99,255,0.08)':'transparent'};
+      transition:all 0.15s;margin-bottom:1px;">
+      <div style="font-size:0.8rem;font-weight:${isSelected?'700':'500'};
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getName(ev)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+        ${brandPill(getBrand(ev))}
+        <span style="font-size:0.65rem;color:var(--muted);">${fmtShort(getDate(ev))}</span>
+        ${filled>0?`<span style="font-size:0.6rem;color:var(--accent2);">✓ ${filled} fält</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openDetailPanel(id){
+  selectedDetailId = id;
+  renderDetailsList();
+  const ev = getEv(id); if(!ev) return;
+  const info = getEventInfo(id);
+
+  function field(key, label, type='text', opts=null){
+    const val = info[key]||'';
+    if(type==='select'){
+      return `<div class="form-group">
+        <label class="form-label">${label}</label>
+        <select class="form-select" onchange="saveDetailField('${id}','${key}',this.value)">
+          <option value="">Välj...</option>
+          ${opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>`;
+    }
+    if(type==='textarea'){
+      return `<div class="form-group">
+        <label class="form-label">${label}</label>
+        <textarea class="note-area" rows="2" 
+          onblur="saveDetailField('${id}','${key}',this.value)"
+          onkeydown="if(event.key==='Enter'&&event.shiftKey===false&&event.ctrlKey)this.blur()"
+          style="font-size:0.82rem;">${val}</textarea>
+      </div>`;
+    }
+    if(type==='checkbox'){
+      return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;">
+        <input type="checkbox" ${val?'checked':''} 
+          onchange="saveDetailField('${id}','${key}',this.checked)"
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
+        <span style="font-size:0.82rem;">${label}</span>
+      </label>`;
+    }
+    if(type==='date'){
+      return `<div class="form-group">
+        <label class="form-label">${label}</label>
+        <input class="form-input" type="date" value="${val}"
+          onblur="saveDetailField('${id}','${key}',this.value)">
+      </div>`;
+    }
+    if(type==='number'){
+      return `<div class="form-group">
+        <label class="form-label">${label}</label>
+        <input class="form-input" type="number" min="0" value="${val}" placeholder="0"
+          onblur="saveDetailField('${id}','${key}',this.value)"
+          onkeydown="if(event.key==='Enter')this.blur()">
+      </div>`;
+    }
+    return `<div class="form-group">
+      <label class="form-label">${label}</label>
+      <input class="form-input" type="text" value="${val}" placeholder=""
+        onblur="saveDetailField('${id}','${key}',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()">
+    </div>`;
+  }
+
+  function section(icon, title, color, content){
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;
+      margin-bottom:16px;overflow:hidden;">
+      <div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:8px;">
+        <span>${icon}</span>
+        <span style="font-size:0.78rem;font-weight:700;color:${color||'var(--text)'};">${title}</span>
+      </div>
+      <div style="padding:14px 16px;">${content}</div>
+    </div>`;
+  }
+
+  const panel = document.getElementById('details-panel');
+  if(!panel) return;
+
+  panel.innerHTML = `
+    <div style="margin-bottom:20px;">
+      <div style="font-size:1.2rem;font-weight:800;">${getName(ev)} ${yb(ev.year)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+        ${brandPill(getBrand(ev))}
+        <span style="font-size:0.8rem;color:var(--muted);">${fmtShort(getDate(ev))} · ${getVenue(ev)||'Lokal ej satt'}</span>
+        <button onclick="goToCalendarEvent('${id}','${ev.year}')"
+          style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--muted);cursor:pointer;margin-left:auto;">
+          📆 Kalender
+        </button>
+        <button onclick="goToTracker('${id}')"
+          style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
+          background:transparent;color:var(--muted);cursor:pointer;">
+          📊 Uppföljning
+        </button>
+      </div>
+    </div>
+
+    ${section('🏢','Grundinfo','var(--accent2)',`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('upplag','Upplägg','select',['Fysisk','Digital','Hybrid'])}
+        ${field('vecka','Vecka (t.ex. v18)')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('plats','Plats/stad')}
+        ${field('lokaler','Lokaler')}
+      </div>
+      ${field('workshop','Workshop','select',['Ja','Nej','x'])}
+      ${field('workshop_antal','Workshop – max antal pers i öar','number')}
+      ${field('ovrig_info','Övrig info och noteringar','textarea')}
+    `)}
+
+    ${section('🍽','Logistik & Mat','#e07b39',`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('mat_bokad','Bokad antal mat','number')}
+        ${field('mat_avbokning','Avbokning mat (datum)','date')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('mat_veg','Vegetariskt/Specialkost','textarea')}
+        ${field('mat_specialkost_deadline','Specialkost deadline','date')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('workshop_mat','Workshop – bokad mat','number')}
+        ${field('vip_frukost','VIP-frukost (antal)','number')}
+      </div>
+    `)}
+
+    ${section('👥','Deltagare & Partners','var(--accent)',`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('talargaster','Talargäster inbjudna (antal)','number')}
+        ${field('partnerpaket','Partnerpaket som erbjuds','textarea')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${field('sponsrade_panel','Sponsrade panelsamtal/hisspitch','textarea')}
+        ${field('sponsrade_sparval','Sponsrade spårval','textarea')}
+      </div>
+      ${field('mingel','Mingel eller lansering','textarea')}
+      ${field('prisutdelning','Prisutdelning','textarea')}
+    `)}
+
+    ${section('📊','Historik – föregående år','var(--yellow)',`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        ${field('fg_betalande','Betalande fg. år','number')}
+        ${field('fg_utstallare','Utställare fg. år','number')}
+        ${field('fg_utstallare_pers','Antal pers. utställare fg. år','number')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        ${field('fg_slutanv','Slutanvändare anmälda fg. år','number')}
+        ${field('fg_totalt_anm','Totalt anmälda fg. år','number')}
+        ${field('fg_totalt_plats','Totalt på plats fg. år','number')}
+      </div>
+      ${field('fg_noshow','No show % fg. år')}
+    `)}
+
+    ${section('✅','Checklista','var(--green)',`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;">
+        ${field('chk_eventsida','Eventsida Partner aktiv (10v innan)','checkbox')}
+        ${field('chk_jirango','Mejlutskick färdigställda / Jirango (9v)','checkbox')}
+        ${field('chk_kontakt1','Eventkontakt 1 – Talare/Moderator/Partners (8v)','checkbox')}
+        ${field('chk_kontakt2','Eventkontakt 2 – Partners påminnelse (6v)','checkbox')}
+        ${field('chk_lokal','Eventkontakt lokal (6v innan)','checkbox')}
+      </div>
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          ${field('deadline_mat','Deadline mat (kostnadsfri avbokning)','date')}
+          ${field('salja','Säljare')}
+        </div>
+      </div>
+      ${field('checknoteringar','Noteringar checklista','textarea')}
+    `)}
+  `;
+}
+
+function saveDetailField(id, key, value){
+  const info = getEventInfo(id);
+  info[key] = value;
+  saveEventInfo(id, info);
+  // Update fill count in sidebar
+  const listEl = document.getElementById('details-list');
+  if(listEl){
+    const item = listEl.querySelector(`[onclick="openDetailPanel('${id}')"] span[style*="accent2"]`);
+    const filled = Object.keys(info).filter(k=>info[k]!==''&&info[k]!==null&&info[k]!==undefined&&info[k]!==false).length;
+    if(item) item.textContent = filled > 0 ? `✓ ${filled} fält` : '';
+  }
+}
+
+function renderDetails(){
+  renderDetailsList();
+  if(selectedDetailId) openDetailPanel(selectedDetailId);
+}
+
 // ── INIT ──────────────────────────────────────────────────────
 checkAuth();
 loadAll();
@@ -3202,6 +3544,34 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
     </div>
     <div class="modal-body" id="studio-modal-body"></div>
     <div class="modal-footer" id="studio-modal-footer"></div>
+  </div>
+</div>
+
+
+<!-- ═══ EVENTINFO ═══ -->
+<div class="content" id="tab-details" style="display:none;">
+  <div style="display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 120px);overflow:hidden;">
+    
+    <!-- Event list sidebar -->
+    <div style="border-right:1px solid var(--border);overflow-y:auto;padding:12px 0;">
+      <div style="padding:8px 14px;font-size:0.68rem;font-weight:700;color:var(--muted);
+        text-transform:uppercase;letter-spacing:0.05em;">Event</div>
+      <div style="padding:0 8px 8px;">
+        <input class="form-input" id="details-search" placeholder="🔍 Sök event..." 
+          style="font-size:0.78rem;padding:6px 10px;"
+          oninput="renderDetailsList()">
+      </div>
+      <div id="details-list"></div>
+    </div>
+    
+    <!-- Detail form panel -->
+    <div style="overflow-y:auto;padding:20px 24px;" id="details-panel">
+      <div style="padding:60px;text-align:center;color:var(--muted);">
+        <div style="font-size:2rem;margin-bottom:12px;">📋</div>
+        <div style="font-weight:700;margin-bottom:6px;">Välj ett event till vänster</div>
+        <div style="font-size:0.82rem;">Fyll i detaljerad information om eventen</div>
+      </div>
+    </div>
   </div>
 </div>
 
