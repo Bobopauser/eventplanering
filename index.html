@@ -2114,15 +2114,21 @@ function renderCalItem(item){
           <button onclick="event.stopPropagation();goToTracker('${ev.id}')"
             style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent2);
             background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;">
-            📋 Uppföljning
+            📊 Uppföljning
+          </button>
+          <button onclick="event.stopPropagation();showDetailSummary('${ev.id}')"
+            style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);
+            background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;">
+            📋 Sammanfattning
           </button>
         </div>
       </div>`;
     }
 
+    const evPastCal = isPast(getDate(ev));
     return `<div data-evid="${ev.id}" style="border-left:3px solid ${item.color};padding:7px 9px;border-radius:7px;
       margin-bottom:4px;background:${isOpen?'rgba(108,99,255,0.08)':'rgba(0,0,0,0.15)'};cursor:pointer;
-      transition:background 0.15s;"
+      transition:background 0.15s;opacity:${evPastCal?'0.4':'1'};"
       onclick="event.stopPropagation();toggleCalEvent('${ev.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
         <div style="display:flex;align-items:center;gap:5px;min-width:0;flex:1;">
@@ -3311,6 +3317,20 @@ function saveEventInfo(id, data){
   saveAll();
 }
 
+function toggleDetailMonth(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? 'block' : 'none';
+  localStorage.setItem('ep_month_collapsed_'+id, isHidden ? '0' : '1');
+  // Rotate arrow
+  const header = el.previousElementSibling;
+  if(header){
+    const arrow = header.querySelector('span:last-child');
+    if(arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+  }
+}
+
 function renderDetailsList(){
   const el = document.getElementById('details-list');
   if(!el) return;
@@ -3326,198 +3346,253 @@ function renderDetailsList(){
       return new Date(da.y,da.m0,da.d)-new Date(db.y,db.m0,db.d);
     });
 
-  el.innerHTML = list.map(ev=>{
+  // Group by month
+  const groups = {};
+  const noDate = [];
+  list.forEach(ev => {
+    const d = parseDate(getDate(ev));
+    if(d) {
+      const key = d.m0; // 0-11
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(ev);
+    } else {
+      noDate.push(ev);
+    }
+  });
+
+  function evItem(ev){
     const info = getEventInfo(ev.id);
-    const filled = Object.keys(info).filter(k=>info[k]!==''&&info[k]!==null&&info[k]!==undefined).length;
+    const filled = Object.keys(info).filter(k=>info[k]!==''&&info[k]!==null&&info[k]!==undefined&&info[k]!==false).length;
     const bc = BRAND_COLORS[getBrand(ev)]||'var(--muted)';
     const isSelected = ev.id === selectedDetailId;
+    const isStudioEv = isStudio(ev);
     return `<div onclick="openDetailPanel('${ev.id}')"
-      style="padding:9px 14px;cursor:pointer;border-left:3px solid ${isSelected?bc:'transparent'};
+      style="padding:8px 12px 8px 14px;cursor:pointer;
+      border-left:3px solid ${isSelected?bc:'transparent'};
       background:${isSelected?'rgba(108,99,255,0.08)':'transparent'};
-      transition:all 0.15s;margin-bottom:1px;">
-      <div style="font-size:0.8rem;font-weight:${isSelected?'700':'500'};
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getName(ev)}</div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+      transition:all 0.15s;">
+      <div style="display:flex;align-items:center;gap:5px;">
+        ${isStudioEv?'<span style="font-size:0.65rem;">🎙</span>':''}
+        <div style="font-size:0.79rem;font-weight:${isSelected?'700':'500'};
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${getName(ev)}</div>
+        ${filled>0?`<span style="font-size:0.58rem;color:var(--accent2);flex-shrink:0;">✓${filled}</span>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:2px;">
         ${brandPill(getBrand(ev))}
-        <span style="font-size:0.65rem;color:var(--muted);">${fmtShort(getDate(ev))}</span>
-        ${filled>0?`<span style="font-size:0.6rem;color:var(--accent2);">✓ ${filled} fält</span>`:''}
+        <span style="font-size:0.63rem;color:var(--muted);">${fmtShort(getDate(ev))}</span>
       </div>
     </div>`;
-  }).join('');
+  }
+
+  let html = '';
+  // Render by month
+  const today = new Date();
+  const currentM = today.getMonth();
+  const yearNum = year || today.getFullYear();
+
+  for(let m=0; m<12; m++){
+    if(!groups[m]) continue;
+    const isPastMonth = yearNum < today.getFullYear() || (yearNum === today.getFullYear() && m < currentM);
+    const isCurrentMonth = yearNum === today.getFullYear() && m === currentM;
+    const monthId = `detail-month-${m}-${yearNum}`;
+    const isCollapsed = localStorage.getItem('ep_month_collapsed_'+monthId) === '1';
+    html += `<div>
+      <div onclick="toggleDetailMonth('${monthId}')"
+        style="padding:7px 12px 7px;font-size:0.67rem;font-weight:700;
+        text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;
+        color:${isCurrentMonth?'var(--accent)':isPastMonth?'var(--muted)':'var(--text)'};
+        border-bottom:1px solid var(--border);
+        background:${isCurrentMonth?'rgba(108,99,255,0.06)':'transparent'};
+        display:flex;align-items:center;gap:5px;
+        transition:background 0.15s;"
+        onmouseover="this.style.background='rgba(108,99,255,0.05)'"
+        onmouseout="this.style.background='${isCurrentMonth?'rgba(108,99,255,0.06)':'transparent'}'">
+        ${isCurrentMonth?'<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;display:inline-block;"></span>':''}
+        ${MONTHS_S[m]} ${yearNum}
+        <span style="font-size:0.6rem;color:var(--muted);font-weight:400;
+          background:var(--card2);padding:1px 5px;border-radius:8px;margin-left:auto;">${groups[m].length}</span>
+        <span style="font-size:0.6rem;color:var(--muted);margin-left:4px;transition:transform 0.2s;
+          display:inline-block;transform:rotate(${isCollapsed?'-90':'0'}deg);">▾</span>
+      </div>
+      <div id="${monthId}" style="display:${isCollapsed?'none':'block'}">
+        ${groups[m].map(evItem).join('')}
+      </div>
+    </div>`;
+  }
+
+  if(noDate.length){
+    html += `<div>
+      <div style="padding:6px 12px 4px;font-size:0.65rem;font-weight:700;text-transform:uppercase;
+        letter-spacing:0.06em;color:var(--muted);border-bottom:1px solid var(--border);">
+        Datum ej satt
+      </div>
+      ${noDate.map(evItem).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html || '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.8rem;">Inga event</div>';
 }
 
 function openDetailPanel(id){
   selectedDetailId = id;
   renderDetailsList();
   const ev = getEv(id); if(!ev) return;
-  // Pre-fill plats/lokaler from existing event data if not already set
   const info = getEventInfo(id);
   if(!info.plats && getVenue(ev)) info.plats = getVenue(ev);
   if(!info.lokaler && getVenue(ev)) info.lokaler = getVenue(ev);
 
-  function field(key, label, type='text', opts=null){
+  function chkDate(chkKey, dateKey, label, hint){
+    const chkVal = info[chkKey]||'';
+    const dateVal = info[dateKey]||'';
+    const done = !!chkVal;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">'      +'<input type="checkbox"'+(done?' checked':'')+' onchange="saveDetailField(\''+id+'\',\''+chkKey+'\',this.checked)"'      +' style="width:15px;height:15px;cursor:pointer;accent-color:var(--green);flex-shrink:0;">'      +'<span style="flex:1;font-size:0.8rem;'+(done?'text-decoration:line-through;color:var(--muted);':'')+'">'+label+'<span style="font-size:0.65rem;color:var(--muted);margin-left:5px;">'+hint+'</span></span>'      +'<input type="date" value="'+dateVal+'"'      +' onblur="saveDetailField(\''+id+'\',\''+dateKey+'\',this.value)"'      +' style="font-size:0.72rem;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:3px 7px;border-radius:6px;outline:none;width:140px;">'      +'</div>';
+  }
+  function field(key, label, type, opts){
+    type = type||'text';
     const val = info[key]||'';
     if(type==='select'){
-      return `<div class="form-group">
-        <label class="form-label">${label}</label>
-        <select class="form-select" onchange="saveDetailField('${id}','${key}',this.value)">
-          <option value="">Välj...</option>
-          ${opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
-        </select>
-      </div>`;
+      return '<div class="form-group"><label class="form-label">'+label+'</label>'
+        +'<select class="form-select" onchange="saveDetailField(\''+id+'\',\''+key+'\',this.value)">'
+        +'<option value="">Välj...</option>'
+        +(opts||[]).map(function(o){ return '<option value="'+o+'"'+(val===o?' selected':'')+'>'+o+'</option>'; }).join('')
+        +'</select></div>';
     }
     if(type==='textarea'){
-      return `<div class="form-group">
-        <label class="form-label">${label}</label>
-        <textarea class="note-area" rows="2" 
-          onblur="saveDetailField('${id}','${key}',this.value)"
-          onkeydown="if(event.key==='Enter'&&event.shiftKey===false&&event.ctrlKey)this.blur()"
-          style="font-size:0.82rem;">${val}</textarea>
-      </div>`;
+      return '<div class="form-group"><label class="form-label">'+label+'</label>'
+        +'<textarea class="note-area" rows="2" onblur="saveDetailField(\''+id+'\',\''+key+'\',this.value)" style="font-size:0.82rem;">'+val+'</textarea></div>';
     }
     if(type==='checkbox'){
-      return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;">
-        <input type="checkbox" ${val?'checked':''} 
-          onchange="saveDetailField('${id}','${key}',this.checked)"
-          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">
-        <span style="font-size:0.82rem;">${label}</span>
-      </label>`;
+      return '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;">'
+        +'<input type="checkbox"'+(val?'checked':'')+' onchange="saveDetailField(\''+id+'\',\''+key+'\',this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);">'
+        +'<span style="font-size:0.82rem;">'+label+'</span></label>';
     }
     if(type==='date'){
-      return `<div class="form-group">
-        <label class="form-label">${label}</label>
-        <input class="form-input" type="date" value="${val}"
-          onblur="saveDetailField('${id}','${key}',this.value)">
-      </div>`;
+      return '<div class="form-group"><label class="form-label">'+label+'</label>'
+        +'<input class="form-input" type="date" value="'+val+'" onblur="saveDetailField(\''+id+'\',\''+key+'\',this.value)"></div>';
     }
     if(type==='number'){
-      return `<div class="form-group">
-        <label class="form-label">${label}</label>
-        <input class="form-input" type="number" min="0" value="${val}" placeholder="0"
-          onblur="saveDetailField('${id}','${key}',this.value)"
-          onkeydown="if(event.key==='Enter')this.blur()">
-      </div>`;
+      return '<div class="form-group"><label class="form-label">'+label+'</label>'
+        +'<input class="form-input" type="number" min="0" value="'+val+'" placeholder="0"'
+        +' onblur="saveDetailField(\''+id+'\',\''+key+'\',this.value)"'
+        +' onkeydown="if(event.key===\'Enter\')this.blur()"></div>';
     }
-    return `<div class="form-group">
-      <label class="form-label">${label}</label>
-      <input class="form-input" type="text" value="${val}" placeholder=""
-        onblur="saveDetailField('${id}','${key}',this.value)"
-        onkeydown="if(event.key==='Enter')this.blur()">
-    </div>`;
+    return '<div class="form-group"><label class="form-label">'+label+'</label>'
+      +'<input class="form-input" type="text" value="'+val+'"'
+      +' onblur="saveDetailField(\''+id+'\',\''+key+'\',this.value)"'
+      +' onkeydown="if(event.key===\'Enter\')this.blur()"></div>';
   }
 
   function section(icon, title, color, content){
-    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;
-      margin-bottom:16px;overflow:hidden;">
-      <div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);
-        display:flex;align-items:center;gap:8px;">
-        <span>${icon}</span>
-        <span style="font-size:0.78rem;font-weight:700;color:${color||'var(--text)'};">${title}</span>
-      </div>
-      <div style="padding:14px 16px;">${content}</div>
-    </div>`;
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;">'
+      +'<div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">'
+      +'<span>'+icon+'</span>'
+      +'<span style="font-size:0.78rem;font-weight:700;color:'+(color||'var(--text)')+';">'+title+'</span>'
+      +'</div><div style="padding:14px 16px;">'+content+'</div></div>';
   }
+
+  // Custom checklist HTML
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  const customCheckHtml = checks.length
+    ? checks.map(function(c,idx){
+        return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;">'
+          +'<input type="checkbox"'+(c.done?' checked':'')+' onchange="toggleCustomCheck(\''+id+'\','+idx+',this.checked)"'
+          +' style="width:15px;height:15px;cursor:pointer;accent-color:var(--green);flex-shrink:0;">'
+          +'<span style="flex:1;font-size:0.8rem;'+(c.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+(c.text||'')+'</span>'
+          +'<button onclick="event.preventDefault();deleteCustomCheck(\''+id+'\','+idx+')"'
+          +' style="font-size:0.62rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button>'
+          +'</label>';
+      }).join('')
+    : '<div style="font-size:0.75rem;color:var(--muted);padding:4px 0;">Inga egna checkpunkter — lägg till nedan</div>';
+
+  const chkSection = section('✅','Checklista','var(--green)',
+    '<div style="margin-bottom:12px;">'
+    +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Egna checkpunkter</div>'
+    +'<div id="custom-checks-'+id+'">'+customCheckHtml+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">'    +'<input class="form-input" id="new-check-'+id+'" type="text" placeholder="Ny checkpunkt..." style="font-size:0.78rem;padding:5px 8px;" onkeydown="if(event.key===\'Enter\')addCustomCheck(\''+id+'\')">'    +'<div style="display:flex;gap:6px;align-items:center;">'    +'<span style="font-size:0.7rem;color:var(--muted);white-space:nowrap;">Datum:</span>'    +'<input type="date" id="new-check-date-'+id+'" style="font-size:0.72rem;background:var(--card2);border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:7px;outline:none;flex:1;">'    +'<button onclick="addCustomCheck(\''+id+'\')" style="font-size:0.78rem;padding:5px 14px;border-radius:7px;border:1px solid var(--accent);background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;white-space:nowrap;">＋ Lägg till</button>'    +'</div>'    +'</div></div>'
+    +'<div style="border-top:1px solid var(--border);padding-top:10px;">'    +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Standard</div>'    +'<div style="display:flex;flex-direction:column;gap:8px;">'    +chkDate('chk_eventsida','chk_eventsida_date','Eventsida Partner aktiv','10v innan')    +chkDate('chk_jirango','chk_jirango_date','Mejlutskick / Jirango','9v innan')    +chkDate('chk_kontakt1','chk_kontakt1_date','Eventkontakt 1 – Talare/Moderator/Partners','8v innan')    +chkDate('chk_kontakt2','chk_kontakt2_date','Eventkontakt 2 – Partners påminnelse','6v innan')    +chkDate('chk_lokal','chk_lokal_date','Eventkontakt lokal','6v innan')    +'</div>'
+    +'<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('deadline_mat','Deadline mat (kostnadsfri avbokning)','date')
+    +field('salja','Säljare')
+    +'</div></div>'
+    +field('checknoteringar','Noteringar checklista','textarea')
+    +'</div>'
+  );
+
+  const grundSection = section('🏢','Grundinfo','var(--accent2)',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('upplag','Upplägg','select',['Fysisk','Digital','Hybrid'])
+    +field('vecka','Vecka (t.ex. v18)')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('plats','Plats/stad')
+    +field('lokaler','Lokaler')
+    +'</div>'
+    +field('workshop','Workshop','select',['Ja','Nej','x'])
+    +field('workshop_antal','Workshop – max antal pers i öar','number')
+    +field('ovrig_info','Övrig info och noteringar','textarea')
+  );
+
+  const matSection = section('🍽','Logistik & Mat','#e07b39',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('mat_bokad','Bokad antal mat','number')
+    +field('mat_avbokning','Avbokning mat (datum)','date')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('mat_veg','Vegetariskt/Specialkost','textarea')
+    +field('mat_specialkost_deadline','Specialkost deadline','date')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('workshop_mat','Workshop – bokad mat','number')
+    +field('vip_frukost','VIP-frukost (antal)','number')
+    +'</div>'
+  );
+
+  const delSection = section('👥','Deltagare & Partners','var(--accent)',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('talargaster','Talargäster inbjudna (antal)','number')
+    +field('partnerpaket','Partnerpaket som erbjuds','textarea')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    +field('sponsrade_panel','Sponsrade panelsamtal/hisspitch','textarea')
+    +field('sponsrade_sparval','Sponsrade spårval','textarea')
+    +'</div>'
+    +field('mingel','Mingel eller lansering','textarea')
+    +field('prisutdelning','Prisutdelning','textarea')
+  );
+
+  const histSection = section('📊','Historik – föregående år','var(--yellow)',
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'
+    +field('fg_betalande','Betalande fg. år','number')
+    +field('fg_utstallare','Utställare fg. år','number')
+    +field('fg_utstallare_pers','Antal pers. utställare fg. år','number')
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'
+    +field('fg_slutanv','Slutanvändare anmälda fg. år','number')
+    +field('fg_totalt_anm','Totalt anmälda fg. år','number')
+    +field('fg_totalt_plats','Totalt på plats fg. år','number')
+    +'</div>'
+    +field('fg_noshow','No show % fg. år')
+  );
 
   const panel = document.getElementById('details-panel');
   if(!panel) return;
 
-  panel.innerHTML = `
-    <div style="margin-bottom:20px;">
-      <div style="font-size:1.2rem;font-weight:800;">${getName(ev)} ${yb(ev.year)}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-        ${brandPill(getBrand(ev))}
-        <span style="font-size:0.8rem;color:var(--muted);">${fmtShort(getDate(ev))} · ${getVenue(ev)||'Lokal ej satt'}</span>
-        <button onclick="goToCalendarEvent('${id}','${ev.year}')"
-          style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
-          background:transparent;color:var(--muted);cursor:pointer;margin-left:auto;">
-          📆 Kalender
-        </button>
-        <button onclick="goToTracker('${id}')"
-          style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
-          background:transparent;color:var(--muted);cursor:pointer;">
-          📊 Uppföljning
-        </button>
-        <button onclick="showDetailSummary('${id}')"
-          style="font-size:0.68rem;padding:2px 10px;border-radius:5px;border:1px solid var(--accent2);
-          background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;font-weight:600;">
-          📋 Sammanfattning
-        </button>
-      </div>
-    </div>
-
-    ${section('🏢','Grundinfo','var(--accent2)',`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('upplag','Upplägg','select',['Fysisk','Digital','Hybrid'])}
-        ${field('vecka','Vecka (t.ex. v18)')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('plats','Plats/stad')}
-        ${field('lokaler','Lokaler')}
-      </div>
-      ${field('workshop','Workshop','select',['Ja','Nej','x'])}
-      ${field('workshop_antal','Workshop – max antal pers i öar','number')}
-      ${field('ovrig_info','Övrig info och noteringar','textarea')}
-    `)}
-
-    ${section('🍽','Logistik & Mat','#e07b39',`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('mat_bokad','Bokad antal mat','number')}
-        ${field('mat_avbokning','Avbokning mat (datum)','date')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('mat_veg','Vegetariskt/Specialkost','textarea')}
-        ${field('mat_specialkost_deadline','Specialkost deadline','date')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('workshop_mat','Workshop – bokad mat','number')}
-        ${field('vip_frukost','VIP-frukost (antal)','number')}
-      </div>
-    `)}
-
-    ${section('👥','Deltagare & Partners','var(--accent)',`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('talargaster','Talargäster inbjudna (antal)','number')}
-        ${field('partnerpaket','Partnerpaket som erbjuds','textarea')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        ${field('sponsrade_panel','Sponsrade panelsamtal/hisspitch','textarea')}
-        ${field('sponsrade_sparval','Sponsrade spårval','textarea')}
-      </div>
-      ${field('mingel','Mingel eller lansering','textarea')}
-      ${field('prisutdelning','Prisutdelning','textarea')}
-    `)}
-
-    ${section('📊','Historik – föregående år','var(--yellow)',`
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-        ${field('fg_betalande','Betalande fg. år','number')}
-        ${field('fg_utstallare','Utställare fg. år','number')}
-        ${field('fg_utstallare_pers','Antal pers. utställare fg. år','number')}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-        ${field('fg_slutanv','Slutanvändare anmälda fg. år','number')}
-        ${field('fg_totalt_anm','Totalt anmälda fg. år','number')}
-        ${field('fg_totalt_plats','Totalt på plats fg. år','number')}
-      </div>
-      ${field('fg_noshow','No show % fg. år')}
-    `)}
-
-    ${section('✅','Checklista','var(--green)',`
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;">
-        ${field('chk_eventsida','Eventsida Partner aktiv (10v innan)','checkbox')}
-        ${field('chk_jirango','Mejlutskick färdigställda / Jirango (9v)','checkbox')}
-        ${field('chk_kontakt1','Eventkontakt 1 – Talare/Moderator/Partners (8v)','checkbox')}
-        ${field('chk_kontakt2','Eventkontakt 2 – Partners påminnelse (6v)','checkbox')}
-        ${field('chk_lokal','Eventkontakt lokal (6v innan)','checkbox')}
-      </div>
-      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${field('deadline_mat','Deadline mat (kostnadsfri avbokning)','date')}
-          ${field('salja','Säljare')}
-        </div>
-      </div>
-      ${field('checknoteringar','Noteringar checklista','textarea')}
-    `)}
-  `;
+  panel.innerHTML =
+    '<div style="margin-bottom:20px;">'
+    +'<div style="font-size:1.2rem;font-weight:800;">'+getName(ev)+' '+yb(ev.year)+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">'
+    +brandPill(getBrand(ev))
+    +'<span style="font-size:0.8rem;color:var(--muted);">'+fmtShort(getDate(ev))+' · '+(getVenue(ev)||'Lokal ej satt')+'</span>'
+    +'<button onclick="goToCalendarEvent(\''+id+'\',\''+ev.year+'\')" style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:auto;">📆 Kalender</button>'
+    +'<button onclick="goToTracker(\''+id+'\')" style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📊 Uppföljning</button>'
+    +'<button onclick="showDetailSummary(\''+id+'\')" style="font-size:0.68rem;padding:2px 10px;border-radius:5px;border:1px solid var(--accent2);background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;font-weight:600;">📋 Sammanfattning</button>'
+    +'</div></div>'
+    + chkSection
+    + grundSection
+    + matSection
+    + delSection
+    + histSection;
 }
 
 function saveDetailField(id, key, value){
@@ -3546,6 +3621,11 @@ function showDetailSummary(id){
   
   document.getElementById('summary-modal-title').textContent = '📋 ' + getName(ev) + ' ' + ev.year;
   document.getElementById('summary-export-btn').onclick = ()=>exportDetailExcel(id);
+  document.getElementById('summary-edit-btn').onclick = ()=>{
+    document.getElementById('detail-summary-modal').style.display='none';
+    showTab('details');
+    setTimeout(()=>openDetailPanel(id), 80);
+  };
 
   const row = (label, val, color) => val ? `
     <tr>
@@ -3707,6 +3787,69 @@ function exportDetailExcel(id){
   }
 }
 
+
+
+function renderCustomChecks(id, info){
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  if(!checks.length) return '<div style="font-size:0.75rem;color:var(--muted);padding:4px 0;">Inga egna checkpunkter — lägg till nedan</div>';
+  return checks.map(function(c,idx){
+    const dateVal = c.date||'';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">'
+      +'<input type="checkbox"'+(c.done?' checked':'')+' onchange="toggleCustomCheck(\''+id+'\','+idx+',this.checked)"'
+      +' style="width:15px;height:15px;cursor:pointer;accent-color:var(--green);flex-shrink:0;">'
+      +'<span style="flex:1;font-size:0.8rem;'+(c.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+c.text+'</span>'
+      +'<input type="date" value="'+dateVal+'"'
+      +' onchange="setCustomCheckDate(\''+id+'\','+idx+',this.value)"'
+      +' style="font-size:0.72rem;padding:3px 7px;border-radius:6px;border:1px solid var(--border);'
+      +'background:var(--card2);color:'+(dateVal?'var(--accent2)':'var(--muted)')+';outline:none;flex-shrink:0;">'
+      +'<button onclick="event.stopPropagation();deleteCustomCheck(\''+id+'\','+idx+')"'
+      +' style="font-size:0.62rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;flex-shrink:0;">✕</button>'
+      +'</div>';
+  }).join('');
+}
+
+function addCustomCheck(id){
+  const input = document.getElementById('new-check-'+id);
+  if(!input || !input.value.trim()) return;
+  const info = getEventInfo(id);
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  checks.push({text: input.value.trim(), done: false, date: ''});
+  info.custom_checks = JSON.stringify(checks);
+  saveEventInfo(id, info);
+  input.value = '';
+  openDetailPanel(id);
+}
+
+
+function setCustomCheckDate(id, idx, dateVal){
+  const info = getEventInfo(id);
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  if(checks[idx] !== undefined) checks[idx].date = dateVal;
+  info.custom_checks = JSON.stringify(checks);
+  saveEventInfo(id, info);
+  openDetailPanel(id);
+}
+
+function toggleCustomCheck(id, idx, done){
+  const info = getEventInfo(id);
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  if(checks[idx]) checks[idx].done = done;
+  info.custom_checks = JSON.stringify(checks);
+  saveEventInfo(id, info);
+  // Re-render just the checks div without full panel re-render
+  const el = document.getElementById('custom-checks-'+id);
+  if(el) openDetailPanel(id);
+}
+
+function deleteCustomCheck(id, idx){
+  const info = getEventInfo(id);
+  const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
+  checks.splice(idx, 1);
+  info.custom_checks = JSON.stringify(checks);
+  saveEventInfo(id, info);
+  openDetailPanel(id);
+}
+
 // ── INIT ──────────────────────────────────────────────────────
 checkAuth();
 loadAll();
@@ -3846,6 +3989,11 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
     <div class="modal-body" id="summary-modal-body" style="overflow-y:auto;flex:1;"></div>
     <div class="modal-footer" style="gap:10px;">
       <button class="btn btn-cancel" onclick="document.getElementById('detail-summary-modal').style.display='none'">Stäng</button>
+      <button class="btn" id="summary-edit-btn"
+        style="padding:8px 16px;border-radius:8px;border:1px solid var(--accent);
+        background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;">
+        ✏️ Redigera i Eventinfo
+      </button>
       <button class="btn btn-primary" id="summary-export-btn">📥 Exportera till Excel</button>
     </div>
   </div>
