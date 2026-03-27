@@ -1252,6 +1252,82 @@ function openAddModal(){
   setTimeout(()=>document.getElementById('m-name').focus(),50);
 }
 
+function saveNewEvent(){
+  const nameEl = document.getElementById('m-name');
+  if(!nameEl) return;
+  const name = nameEl.value.trim();
+  if(!name){ alert('Ange ett eventnamn'); return; }
+
+  const payingEl = document.getElementById('m-paying');
+  const guestsEl = document.getElementById('m-guests');
+  const totalEl  = document.getElementById('m-total');
+  const paying   = payingEl ? (parseInt(payingEl.value)||0) : 0;
+  const guests   = guestsEl ? (parseInt(guestsEl.value)||0) : 0;
+  const totalIn  = totalEl  ? parseInt(totalEl.value) : NaN;
+  const total    = totalIn  || (paying + guests);
+
+  const typeEl     = document.getElementById('m-type');
+  const evType     = typeEl ? typeEl.value : 'event';
+  const studioDateEl = document.getElementById('m-studio-date');
+  const mainDate   = document.getElementById('m-date')?.value.trim() || '';
+  const studioDate = studioDateEl ? studioDateEl.value.trim() : '';
+  const evDate     = mainDate || (evType==='studio' ? studioDate : '') || 'Datum ej satt';
+  const venueVal   = document.getElementById('m-venue')?.value.trim() || (evType==='studio' ? 'Studio' : '');
+
+  const ev = {
+    id:    'e'+(idCounter++),
+    brand: document.getElementById('m-brand')?.value || 'Vd-tidningen',
+    year:  parseInt(document.getElementById('m-year')?.value) || new Date().getFullYear(),
+    name,
+    date:  evDate,
+    venue: venueVal,
+    paying, guests, total,
+    eventType: evType,
+  };
+
+  events.push(ev);
+
+  const ns = readSchedFromForm();
+  if(ns){ if(!edits[ev.id]) edits[ev.id]={}; edits[ev.id].schedule=ns; }
+
+  // Save studio info if type is studio
+  if(evType === 'studio'){
+    const stEl = document.getElementById('m-studio-type');
+    const sbEl = document.getElementById('m-studio-bookdate');
+    const pkEl = document.getElementById('m-studio-programklart');
+    const spEl = document.getElementById('m-studio-sponsor');
+    const suEl = document.getElementById('m-studio-url');
+    const studioData = {
+      activityType: stEl?.value||'Webbinar',
+      date: studioDate,
+      bookDate: sbEl?.value||'',
+      programKlart: pkEl?.value||'',
+      sponsor: spEl?.value||'',
+      streamUrl: suEl?.value||'',
+    };
+    if(!edits[ev.id]) edits[ev.id]={};
+    edits[ev.id].studioData = studioData;
+    if(studioData.programKlart){
+      if(!edits[ev.id].schedule) edits[ev.id].schedule={};
+      edits[ev.id].schedule.meeting3 = studioData.programKlart;
+    }
+    studioBookings.push({
+      id: 's'+(studioIdCounter++),
+      eventId: ev.id,
+      brand: ev.brand, year: ev.year,
+      activityType: studioData.activityType,
+      date: studioDate,
+      bookDate: studioData.bookDate,
+      sponsor: studioData.sponsor,
+      streamUrl: studioData.streamUrl,
+    });
+    saveStudio();
+  }
+
+  saveAll(); closeModal();
+  renderTracker(); renderSummary(); renderCalendar();
+}
+
 function openEditModal(id){
   const ev=getEv(id);
   if(!ev)return;
@@ -3239,7 +3315,8 @@ function renderDetailsList(){
   const el = document.getElementById('details-list');
   if(!el) return;
   const q = (document.getElementById('details-search')?.value||'').toLowerCase();
-  const year = activeYear==='all' ? null : +activeYear;
+  const yearSel = document.getElementById('details-year-filter')?.value||'all';
+  const year = yearSel==='all' ? null : +yearSel;
   let list = [...events]
     .filter(e => !year || e.year===year)
     .filter(e => !q || getName(e).toLowerCase().includes(q) || getBrand(e).toLowerCase().includes(q))
@@ -3273,7 +3350,10 @@ function openDetailPanel(id){
   selectedDetailId = id;
   renderDetailsList();
   const ev = getEv(id); if(!ev) return;
+  // Pre-fill plats/lokaler from existing event data if not already set
   const info = getEventInfo(id);
+  if(!info.plats && getVenue(ev)) info.plats = getVenue(ev);
+  if(!info.lokaler && getVenue(ev)) info.lokaler = getVenue(ev);
 
   function field(key, label, type='text', opts=null){
     const val = info[key]||'';
@@ -3356,6 +3436,11 @@ function openDetailPanel(id){
           style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);
           background:transparent;color:var(--muted);cursor:pointer;">
           📊 Uppföljning
+        </button>
+        <button onclick="showDetailSummary('${id}')"
+          style="font-size:0.68rem;padding:2px 10px;border-radius:5px;border:1px solid var(--accent2);
+          background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;font-weight:600;">
+          📋 Sammanfattning
         </button>
       </div>
     </div>
@@ -3451,6 +3536,175 @@ function saveDetailField(id, key, value){
 function renderDetails(){
   renderDetailsList();
   if(selectedDetailId) openDetailPanel(selectedDetailId);
+}
+
+
+// ── DETAIL SUMMARY & EXPORT ───────────────────────────────────
+function showDetailSummary(id){
+  const ev = getEv(id); if(!ev) return;
+  const info = getEventInfo(id);
+  
+  document.getElementById('summary-modal-title').textContent = '📋 ' + getName(ev) + ' ' + ev.year;
+  document.getElementById('summary-export-btn').onclick = ()=>exportDetailExcel(id);
+
+  const row = (label, val, color) => val ? `
+    <tr>
+      <td style="padding:6px 10px;font-size:0.78rem;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--border);">${label}</td>
+      <td style="padding:6px 10px;font-size:0.82rem;font-weight:500;border-bottom:1px solid var(--border);color:${color||'var(--text)'};">${val}</td>
+    </tr>` : '';
+
+  const section = (icon, title, color, rows) => {
+    const content = rows.filter(Boolean).join('');
+    if(!content) return '';
+    return `<div style="margin-bottom:16px;">
+      <div style="padding:8px 10px;background:var(--card2);border-radius:8px 8px 0 0;
+        font-size:0.72rem;font-weight:700;color:${color};display:flex;align-items:center;gap:6px;">
+        ${icon} ${title}
+      </div>
+      <table style="width:100%;border-collapse:collapse;background:var(--card);border-radius:0 0 8px 8px;overflow:hidden;">
+        ${content}
+      </table>
+    </div>`;
+  };
+
+  const fmt = val => val === true || val === 'true' ? '✅ Ja' : val === false || val === 'false' ? '–' : (val||'');
+  const fmtNum = val => val ? Number(val).toLocaleString('sv') : '';
+
+  document.getElementById('summary-modal-body').innerHTML = `
+    <div style="padding:4px 0 12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        ${brandPill(getBrand(ev))}
+        <span style="font-size:0.82rem;color:var(--muted);">${fmtShort(getDate(ev))} · ${getVenue(ev)||'–'}</span>
+      </div>
+
+      ${section('🏢','Grundinfo','var(--accent2)',[
+        row('Upplägg', info.upplag),
+        row('Vecka', info.vecka),
+        row('Plats', info.plats),
+        row('Lokaler', info.lokaler),
+        row('Workshop', info.workshop),
+        row('Workshop max antal', fmtNum(info.workshop_antal)),
+        row('Övrig info', info.ovrig_info),
+      ])}
+
+      ${section('🍽','Logistik & Mat','#e07b39',[
+        row('Bokad antal mat', fmtNum(info.mat_bokad)),
+        row('Avbokning mat deadline', info.mat_avbokning),
+        row('Veg/Specialkost', info.mat_veg),
+        row('Specialkost deadline', info.mat_specialkost_deadline),
+        row('Workshop bokad mat', fmtNum(info.workshop_mat)),
+        row('VIP-frukost antal', fmtNum(info.vip_frukost)),
+      ])}
+
+      ${section('👥','Deltagare & Partners','var(--accent)',[
+        row('Talargäster inbjudna', fmtNum(info.talargaster)),
+        row('Partnerpaket', info.partnerpaket),
+        row('Sponsrade panelsamtal', info.sponsrade_panel),
+        row('Sponsrade spårval', info.sponsrade_sparval),
+        row('Mingel/Lansering', info.mingel),
+        row('Prisutdelning', info.prisutdelning),
+      ])}
+
+      ${section('📊','Historik fg. år','var(--yellow)',[
+        row('Betalande fg. år', fmtNum(info.fg_betalande)),
+        row('Utställare fg. år', fmtNum(info.fg_utstallare)),
+        row('Pers. utställare fg. år', fmtNum(info.fg_utstallare_pers)),
+        row('Slutanvändare anmälda fg. år', fmtNum(info.fg_slutanv)),
+        row('Totalt anmälda fg. år', fmtNum(info.fg_totalt_anm)),
+        row('Totalt på plats fg. år', fmtNum(info.fg_totalt_plats)),
+        row('No show % fg. år', info.fg_noshow),
+      ])}
+
+      ${section('✅','Checklista','var(--green)',[
+        row('Eventsida aktiv (10v)', fmt(info.chk_eventsida)),
+        row('Mejlutskick / Jirango (9v)', fmt(info.chk_jirango)),
+        row('Eventkontakt 1 (8v)', fmt(info.chk_kontakt1)),
+        row('Eventkontakt 2 (6v)', fmt(info.chk_kontakt2)),
+        row('Kontakt lokal (6v)', fmt(info.chk_lokal)),
+        row('Deadline mat', info.deadline_mat),
+        row('Säljare', info.salja),
+        row('Noteringar', info.checknoteringar),
+      ])}
+    </div>
+  `;
+
+  const el = document.getElementById('detail-summary-modal');
+  if(el) el.style.display = 'flex';
+}
+
+function exportDetailExcel(id){
+  const ev = getEv(id); if(!ev) return;
+  const info = getEventInfo(id);
+
+  try {
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      ['Fält', 'Värde'],
+      ['Event', getName(ev)],
+      ['Varumärke', getBrand(ev)],
+      ['År', ev.year],
+      ['Datum', getDate(ev)],
+      ['Lokal', getVenue(ev)||''],
+      ['',''],
+      ['GRUNDINFO',''],
+      ['Upplägg', info.upplag||''],
+      ['Vecka', info.vecka||''],
+      ['Plats', info.plats||''],
+      ['Lokaler', info.lokaler||''],
+      ['Workshop', info.workshop||''],
+      ['Workshop max antal', info.workshop_antal||''],
+      ['Övrig info', info.ovrig_info||''],
+      ['',''],
+      ['LOGISTIK & MAT',''],
+      ['Bokad antal mat', info.mat_bokad||''],
+      ['Avbokning mat deadline', info.mat_avbokning||''],
+      ['Veg/Specialkost', info.mat_veg||''],
+      ['Specialkost deadline', info.mat_specialkost_deadline||''],
+      ['Workshop bokad mat', info.workshop_mat||''],
+      ['VIP-frukost antal', info.vip_frukost||''],
+      ['',''],
+      ['DELTAGARE & PARTNERS',''],
+      ['Talargäster inbjudna', info.talargaster||''],
+      ['Partnerpaket', info.partnerpaket||''],
+      ['Sponsrade panelsamtal', info.sponsrade_panel||''],
+      ['Sponsrade spårval', info.sponsrade_sparval||''],
+      ['Mingel/Lansering', info.mingel||''],
+      ['Prisutdelning', info.prisutdelning||''],
+      ['',''],
+      ['HISTORIK FG. ÅR',''],
+      ['Betalande fg. år', info.fg_betalande||''],
+      ['Utställare fg. år', info.fg_utstallare||''],
+      ['Pers. utställare fg. år', info.fg_utstallare_pers||''],
+      ['Slutanvändare anmälda fg. år', info.fg_slutanv||''],
+      ['Totalt anmälda fg. år', info.fg_totalt_anm||''],
+      ['Totalt på plats fg. år', info.fg_totalt_plats||''],
+      ['No show % fg. år', info.fg_noshow||''],
+      ['',''],
+      ['CHECKLISTA',''],
+      ['Eventsida aktiv (10v)', info.chk_eventsida?'Ja':''],
+      ['Mejlutskick / Jirango (9v)', info.chk_jirango?'Ja':''],
+      ['Eventkontakt 1 (8v)', info.chk_kontakt1?'Ja':''],
+      ['Eventkontakt 2 (6v)', info.chk_kontakt2?'Ja':''],
+      ['Kontakt lokal (6v)', info.chk_lokal?'Ja':''],
+      ['Deadline mat', info.deadline_mat||''],
+      ['Säljare', info.salja||''],
+      ['Noteringar', info.checknoteringar||''],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // Set column widths
+    ws['!cols'] = [{wch:35},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Eventinfo');
+    XLSX.writeFile(wb, `Eventinfo_${getName(ev)}_${ev.year}.xlsx`);
+  } catch(err) {
+    // Fallback to CSV if SheetJS fails
+    const rows2 = [['Fält','Värde'],['Event',getName(ev)],['Varumärke',getBrand(ev)]];
+    const csv = rows2.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+    a.download = `Eventinfo_${getName(ev)}_${ev.year}.csv`;
+    a.click();
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────
@@ -3554,11 +3808,16 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
     
     <!-- Event list sidebar -->
     <div style="border-right:1px solid var(--border);overflow-y:auto;padding:12px 0;">
-      <div style="padding:8px 14px;font-size:0.68rem;font-weight:700;color:var(--muted);
-        text-transform:uppercase;letter-spacing:0.05em;">Event</div>
-      <div style="padding:0 8px 8px;">
-        <input class="form-input" id="details-search" placeholder="🔍 Sök event..." 
-          style="font-size:0.78rem;padding:6px 10px;"
+      <div style="padding:10px 10px 6px;display:flex;gap:6px;align-items:center;">
+        <select class="form-select" id="details-year-filter" style="font-size:0.78rem;padding:5px 8px;flex-shrink:0;width:90px;"
+          onchange="renderDetailsList()">
+          <option value="all">Alla år</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+        <input class="form-input" id="details-search" placeholder="🔍 Sök..." 
+          style="font-size:0.78rem;padding:5px 8px;flex:1;"
           oninput="renderDetailsList()">
       </div>
       <div id="details-list"></div>
@@ -3571,6 +3830,23 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
         <div style="font-weight:700;margin-bottom:6px;">Välj ett event till vänster</div>
         <div style="font-size:0.82rem;">Fyll i detaljerad information om eventen</div>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ EVENT SUMMARY MODAL ═══ -->
+<div class="modal-bg" id="detail-summary-modal" style="display:none;" 
+  onclick="if(event.target===this)document.getElementById('detail-summary-modal').style.display='none'">
+  <div class="modal" style="max-width:680px;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <h3 id="summary-modal-title">📋 Sammanfattning</h3>
+      <button class="modal-close" onclick="document.getElementById('detail-summary-modal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="summary-modal-body" style="overflow-y:auto;flex:1;"></div>
+    <div class="modal-footer" style="gap:10px;">
+      <button class="btn btn-cancel" onclick="document.getElementById('detail-summary-modal').style.display='none'">Stäng</button>
+      <button class="btn btn-primary" id="summary-export-btn">📥 Exportera till Excel</button>
     </div>
   </div>
 </div>
