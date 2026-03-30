@@ -23,6 +23,24 @@
     --mu:   #5aaa5a;
     --tech: #d4a017;
   }
+  :root.light {
+    --bg: #f0f2f7;
+    --card: #ffffff;
+    --card2: #f5f7fb;
+    --border: #dde1ee;
+    --text: #1a1d2e;
+    --muted: #6b7280;
+    --accent: #5a52d5;
+    --accent2: #2db5aa;
+    --green: #2e9e4f;
+    --red: #dc2626;
+    --yellow: #d97706;
+    --vd:   #c85a1a;
+    --km:   #2563eb;
+    --mu:   #3d8a3d;
+    --tech: #b45309;
+  }
+  *, *::before, *::after { transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
 
@@ -292,6 +310,8 @@
     <h1>📅 Eventplanering 2026–2028</h1>
     <div id="save-note">Laddar...</div>
     <button onclick="logout()" style="font-size:0.68rem;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:8px;">Logga ut</button>
+    <button onclick="toggleTheme()" id="theme-btn" title="Växla ljust/mörkt läge"
+      style="font-size:0.78rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:4px;">🌙</button>
   </div>
   <div class="hdr-btns">
     <button class="hdr-btn green" onclick="openAddModal()">＋ Nytt event</button>
@@ -350,6 +370,13 @@
 <!-- ═══ TRACKER ═══ -->
 <div style="padding:14px 14px 0;" id="tracker-summary"></div>
 <div class="content" id="tab-tracker" style="display:none;">
+  <div id="trend-panel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">
+    <div style="padding:10px 17px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:0.82rem;font-weight:700;" id="trend-title">📈 Trend</span>
+      <button onclick="document.getElementById('trend-panel').style.display='none'" style="font-size:0.72rem;color:var(--muted);background:transparent;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:14px 17px;" id="trend-body"></div>
+  </div>
   <div id="detail-panel" class="empty">
     <div id="dp-inner">
       <div class="dp-empty"><strong>Välj ett event i listan nedan</strong>Klicka på en rad för detaljerad uträkning och redigering</div>
@@ -378,8 +405,19 @@
   <div class="card">
     <div class="card-header">
       <h2 id="tbl-title">Faktiskt utfall vs mål</h2>
-      <span style="font-size:0.68rem;color:var(--muted)">💾 Sparas automatiskt &nbsp;·&nbsp; Klicka rad för detaljer</span>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:0.68rem;color:var(--muted)">💾 Sparas automatiskt</span>
+        <button onclick="toggleYearCompare()" id="btn-year-compare"
+          style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">
+          📊 Jämför år
+        </button>
+        <button onclick="exportXLSX()"
+          style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--green);background:rgba(81,207,102,0.1);color:var(--green);cursor:pointer;font-weight:600;">
+          📥 Exportera Excel
+        </button>
+      </div>
     </div>
+    <div id="year-compare-panel" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--card2);"></div>
     <div style="overflow-x:auto;"><table id="tbl"></table></div>
   </div>
 </div>
@@ -390,7 +428,16 @@
 
   <!-- Upcoming activities -->
   <div class="card" style="margin-bottom:16px;">
-    <div class="card-header"><h2>⏰ Kommande aktiviteter</h2><span style="font-size:0.72rem;color:var(--muted)">Närmaste 60 dagarna</span></div>
+    <div class="card-header">
+      <h2>⏰ Kommande aktiviteter</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <button class="fbtn active" id="ub-all" onclick="setUpcomingBrand('all',this)" style="font-size:0.68rem;padding:3px 10px;">Alla</button>
+        <button class="fbtn" onclick="setUpcomingBrand('Vd-tidningen',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--vd);color:var(--vd);">Vd-tidningen</button>
+        <button class="fbtn" onclick="setUpcomingBrand('Kvalitetsmagasinet',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--km);color:var(--km);">KM</button>
+        <button class="fbtn" onclick="setUpcomingBrand('Miljö & Utveckling',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--mu);color:var(--mu);">MU</button>
+        <button class="fbtn" onclick="setUpcomingBrand('Techtidningen',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--tech);color:var(--tech);">Tech</button>
+      </div>
+    </div>
     <div style="padding:12px;" id="upcoming-list"></div>
   </div>
 
@@ -473,7 +520,7 @@
       🎙 Importera studio
       <input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importStudioFile(this)">
     </label>
-    <button onclick="exportICS(calYear)"
+    <button onclick="openExportICSModal()"
       style="font-size:0.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);
       background:var(--card2);color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color 0.15s;"
       onmouseover="this.style.borderColor='var(--muted)'" onmouseout="this.style.borderColor='var(--border)'">
@@ -481,11 +528,16 @@
     </button>
   </div>
 </div>
-<div style="padding:6px 14px 10px;display:flex;align-items:center;gap:8px;position:relative;">
+<div style="padding:6px 14px 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative;">
   <button onclick="toggleMonthPicker(event)"
     style="font-size:0.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--accent);
     background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;">
     📅 Gå till månad
+  </button>
+  <button id="collapse-all-btn" onclick="toggleAllMonths()" title="Fäll in/ut alla månader"
+    style="padding:5px 9px;border-radius:7px;border:1px solid var(--border);
+    background:transparent;color:var(--muted);cursor:pointer;">
+    <span id="collapse-all-arrow" style="font-size:0.75rem;display:inline-block;transition:transform 0.2s;transform:rotate(0deg);">▾</span>
   </button>
   <div id="month-picker" style="display:none;position:absolute;top:36px;left:14px;
     background:var(--card);border:1px solid var(--border);border-radius:12px;
@@ -966,6 +1018,7 @@ function getPayload(){
 }
 
 function saveAll() {
+  autoUpdateYearButtons();
   // Always save locally as backup
   localStorage.setItem('ep_actuals5', JSON.stringify(actuals));
   localStorage.setItem('ep_edits5',   JSON.stringify(edits));
@@ -1325,6 +1378,7 @@ function saveNewEvent(){
   }
 
   saveAll(); closeModal();
+  autoUpdateYearButtons();
   renderTracker(); renderSummary(); renderCalendar();
 }
 
@@ -1446,6 +1500,7 @@ function saveEditEvent(id){
   if(ev && yearEl) ev.year = parseInt(yearEl.value);
   const us=readSchedFromForm(); if(us){if(!edits[id])edits[id]={};edits[id].schedule=us;}
   saveAll(); closeModal();
+  autoUpdateYearButtons();
   if(selectedId===id) renderPanel(id);
   renderTracker(); renderSummary(); renderCalendar();
 }
@@ -1624,7 +1679,13 @@ function selectEvent(id){
   selectedId=id;
   document.querySelectorAll('#tbl tbody tr').forEach(tr=>tr.classList.toggle('selected',tr.dataset.id===id));
   renderPanel(id);
-  if(id) document.getElementById('detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+  if(id){
+    document.getElementById('detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+    showTrend(id);
+  } else {
+    const tp=document.getElementById('trend-panel');
+    if(tp) tp.style.display='none';
+  }
 }
 
 function updateField(id,field,value){
@@ -1772,6 +1833,17 @@ function renderTracker(){
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────
+let upcomingBrand = 'all';
+function setUpcomingBrand(brand, btn){
+  upcomingBrand = brand;
+  document.querySelectorAll('#ub-all, [onclick^="setUpcomingBrand"]').forEach(b=>{
+    b.classList.remove('active');
+    b.style.background = '';
+  });
+  btn.classList.add('active');
+  renderDashboard();
+}
+
 function renderDashboard(){
   const e26=events.filter(e=>e.year===2026);
   const filled=events.filter(e=>getAT(e.id)!==null);
@@ -1780,10 +1852,28 @@ function renderDashboard(){
   const pct=tg>0?Math.round(ta/tg*100):null;
 
   // ── KPI strip ──────────────────────────────────────────────
+  // Next event calculation
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const nextEv = events
+    .map(e=>{ const d=parseDate(getDate(e)); return d?{ev:e, date:new Date(d.y,d.m0,d.d)}:null; })
+    .filter(x=>x && x.date >= todayD)
+    .sort((a,b)=>a.date-b.date)[0];
+  const daysToNext = nextEv ? Math.round((nextEv.date-todayD)/(1000*60*60*24)) : null;
+  const nextLabel = daysToNext===0 ? '<span style="color:var(--red);font-size:0.72rem;font-weight:700;">Idag!</span>'
+    : daysToNext===1 ? '<span style="color:var(--yellow);font-size:0.72rem;">Imorgon</span>'
+    : daysToNext!==null ? '<span style="font-size:0.72rem;color:var(--muted);">om '+daysToNext+' dagar</span>' : '–';
+
   document.getElementById('dash-kpi').innerHTML=`
     <div class="s-card"><div class="lbl">Events 2026</div><div class="val" style="color:var(--accent)">${e26.length}</div></div>
     <div class="s-card"><div class="lbl">Inmatade</div><div class="val" style="color:var(--accent2)">${filled.length} / ${events.length}</div></div>
-    <div class="s-card"><div class="lbl">Samlad uppfyllnad</div><div class="val" style="color:${pcol(pct)}">${pct!==null?pct+'%':'–'}</div></div>`;
+    <div class="s-card"><div class="lbl">Samlad uppfyllnad</div><div class="val" style="color:${pcol(pct)}">${pct!==null?pct+'%':'–'}</div></div>
+    <div class="s-card">
+      <div class="lbl">Nästa event</div>
+      <div class="val" style="font-size:0.95rem;${daysToNext===0?'color:var(--red)':daysToNext===1?'color:var(--yellow)':'color:var(--text)'}">
+        ${nextEv?getName(nextEv.ev):'–'}
+      </div>
+      <div style="margin-top:2px;">${nextLabel}</div>
+    </div>`;
 
   // ── Upcoming activities (next 60 days) ─────────────────────
   const today = new Date();
@@ -1828,10 +1918,15 @@ function renderDashboard(){
   });
   upcoming.sort((a,b)=>a.days-b.days);
 
+  // Filter by brand
+  const upcomingFiltered = upcomingBrand === 'all'
+    ? upcoming
+    : upcoming.filter(u => getBrand(u.ev) === upcomingBrand);
+
   const typeIcon = {event:'📅',meeting:'🟡',digital:'🟠',manual:'🟢'};
-  if(upcoming.length){
-    document.getElementById('upcoming-list').innerHTML = upcoming.slice(0,12).map(u=>`
-      <div style="display:flex;align-items:center;gap:12px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;"
+  if(upcomingFiltered.length){
+    document.getElementById('upcoming-list').innerHTML = upcomingFiltered.slice(0,12).map(u=>`
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer;${u.days===0?'background:rgba(108,99,255,0.06);border-radius:8px;margin:2px 0;':''}"
         onclick="goToCalendarEvent('${u.ev.id}','${u.ev.year}')">
         <div style="min-width:80px;text-align:right;font-size:0.75rem;">${daysLabel(u.days)}</div>
         <div style="width:3px;height:32px;border-radius:2px;background:${u.color};flex-shrink:0;"></div>
@@ -1843,7 +1938,7 @@ function renderDashboard(){
       </div>`).join('');
   } else {
     document.getElementById('upcoming-list').innerHTML =
-      '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.84rem;">Inga aktiviteter de kommande 60 dagarna</div>';
+      '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.84rem;">Inga aktiviteter de kommande 60 dagarna'+( upcomingBrand!=='all'?' för detta varumärke':''  )+'</div>';
   }
 
   // ── Best performers ────────────────────────────────────────
@@ -2126,10 +2221,7 @@ function renderCalItem(item){
     }
 
     const evPastCal = isPast(getDate(ev));
-    return `<div data-evid="${ev.id}" style="border-left:3px solid ${item.color};padding:7px 9px;border-radius:7px;
-      margin-bottom:4px;background:${isOpen?'rgba(108,99,255,0.08)':'rgba(0,0,0,0.15)'};cursor:pointer;
-      transition:background 0.15s;opacity:${evPastCal?'0.4':'1'};"
-      onclick="event.stopPropagation();toggleCalEvent('${ev.id}')">
+    return `<div data-evid="${ev.id}" draggable="true" ondragstart="calDragStart(event,'${ev.id}')" style="border-left:3px solid ${item.color};padding:7px 9px;border-radius:7px;margin-bottom:4px;background:${isOpen?'rgba(108,99,255,0.08)':'rgba(0,0,0,0.15)'};cursor:grab;transition:background 0.15s;opacity:${evPastCal?'0.4':'1'};" onclick="event.stopPropagation();toggleCalEvent('${ev.id}')">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">
         <div style="display:flex;align-items:center;gap:5px;min-width:0;flex:1;">
           <div style="font-size:0.79rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.label}</div>
@@ -2599,6 +2691,73 @@ document.addEventListener('click', function(e){
   if(picker && !picker.contains(e.target)) picker.style.display='none';
 });
 
+// ── CALENDAR DRAG & DROP ──────────────────────────────────────
+let _calDragId = null;
+function calDragOver(el){
+  event.preventDefault();
+  el.style.outline='2px dashed var(--accent)';
+  el.style.background='rgba(108,99,255,0.04)';
+}
+function calDragLeave(el){
+  el.style.outline='';
+  el.style.background='';
+}
+function calDragStart(e, evId){
+  _calDragId = evId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', evId);
+}
+function calDrop(e, targetMonthIdx){
+  e.preventDefault();
+  if(!_calDragId) return;
+  const ev = getEv(_calDragId);
+  if(!ev) return;
+  // Update event date to first day of target month in current calYear
+  const pad = n => String(n).padStart(2,'0');
+  const newDate = calYear+'-'+pad(targetMonthIdx+1)+'-01';
+  // Try to preserve day if original date exists
+  const orig = parseDate(getDate(ev));
+  const day = orig ? orig.d : 1;
+  const daysInMonth = new Date(calYear, targetMonthIdx+1, 0).getDate();
+  const safeDay = Math.min(day, daysInMonth);
+  const finalDate = calYear+'-'+pad(targetMonthIdx+1)+'-'+pad(safeDay);
+  if(!edits[ev.id]) edits[ev.id]={};
+  edits[ev.id].date = finalDate;
+  saveAll();
+  renderCalendar();
+  _calDragId = null;
+}
+
+let _allCollapsed = false;
+function toggleAllMonths(){
+  _allCollapsed = !_allCollapsed;
+  collapseAllMonths(_allCollapsed);
+  const arrow = document.getElementById('collapse-all-arrow');
+  if(arrow) arrow.style.transform = _allCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+}
+
+function collapseAllMonths(collapse){
+  for(let mi=0; mi<12; mi++){
+    localStorage.setItem('cal_col_'+calYear+'_'+mi, collapse ? '1' : '0');
+  }
+  renderCalendar();
+}
+
+function toggleCalMonth(year, monthIdx){
+  const key = 'cal_col_'+year+'_'+monthIdx;
+  const current = localStorage.getItem(key);
+  // Toggle: if currently collapsed (or auto-collapsed past), expand; else collapse
+  const wasCollapsed = current === '1' || (current === null && year < new Date().getFullYear()) ||
+    (current === null && year == new Date().getFullYear() && monthIdx < new Date().getMonth());
+  localStorage.setItem(key, wasCollapsed ? '0' : '1');
+  renderCalendar();
+  // Scroll to month after re-render
+  setTimeout(()=>{
+    const card = document.getElementById('cmc-'+year+'-'+monthIdx);
+    if(card) card.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 50);
+}
+
 function scrollToCurrentMonth(){
   const m = new Date().getMonth(); // 0-indexed
   const monthNames = ['Januari','Februari','Mars','April','Maj','Juni',
@@ -2681,6 +2840,7 @@ function renderDashboardTasksNotes(){
 
 // ── CALENDAR RENDER ───────────────────────────────────────────
 function renderCalendar(){
+  autoUpdateYearButtons();
   const grid=document.getElementById('cal-grid'); if(!grid) return;
   const evList=filteredEvents('calendar').filter(e=>{
     if(e.year!=calYear) return false;
@@ -2695,16 +2855,44 @@ function renderCalendar(){
   });
   const T={event:0,meeting:1,digital:2,manual:3,warmup:4};
   buckets.forEach(b=>b.sort((a,z)=>((T[a.type]??9)-(T[z.type]??9))||((a.sort||0)-(z.sort||0))));
-  grid.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">'
-    +MONTHS.map((name,i)=>`
-      <div class="month-card">
-        <div class="month-title">${name}</div>
-        <div class="month-body">${buckets[i].length
-          ?buckets[i].map(item=>renderCalItem(item)).join('')
-          :'<div style="padding:9px;color:var(--muted);font-size:0.74rem;text-align:center;">–</div>'
-        }</div>
-      </div>`).join('')+'</div>';
+
+  const now = new Date(); now.setHours(0,0,0,0);
+  const curMonth = (calYear == now.getFullYear()) ? now.getMonth() : -1;
+
+  grid.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">'
+    + MONTHS.map((name,mi)=>{
+        const isPast = calYear < now.getFullYear() || (calYear == now.getFullYear() && mi < now.getMonth());
+        const isCurrent = mi === curMonth;
+        const storageKey = 'cal_col_'+calYear+'_'+mi;
+        const manuallySet = localStorage.getItem(storageKey) !== null;
+        const collapsed = manuallySet ? localStorage.getItem(storageKey)==='1' : isPast;
+        const arrowRot = collapsed ? '-90' : '0';
+        const titleColor = isCurrent ? 'color:var(--accent);' : isPast ? 'opacity:0.6;' : '';
+
+        // Month title — always visible, clickable to toggle
+        const monthTitle = '<div class="month-title" onclick="toggleCalMonth('+calYear+','+mi+')"'
+          +' style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;'+titleColor+'">'
+          +'<span>'+name+(isCurrent ? ' <span style="font-size:0.58rem;background:var(--accent);color:white;padding:1px 6px;border-radius:8px;margin-left:5px;vertical-align:middle;">Nu</span>' : '')+'</span>'
+          +'<div style="display:flex;align-items:center;gap:5px;">'
+          +(buckets[mi].length ? '<span style="font-size:0.62rem;opacity:0.55;">'+buckets[mi].length+'</span>' : '')
+          +'<span id="cal-arrow-'+calYear+'-'+mi+'" style="font-size:0.65rem;display:inline-block;transition:transform 0.2s;transform:rotate('+arrowRot+'deg);">▾</span>'
+          +'</div></div>';
+
+        // Month body — full event cards, opacity reduced if past
+        const monthBody = '<div id="cmb-'+calYear+'-'+mi+'"'
+          +' style="display:'+(collapsed?'none':'block')+';"'
+          +' ondragover="calDragOver(this)" ondragleave="calDragLeave(this)" ondrop="calDrop(event,'+mi+');calDragLeave(this)">'
+          +'<div class="month-body" style="opacity:'+(isPast?'0.45':'1')+';transition:opacity 0.2s;">'
+          +(buckets[mi].length
+            ? buckets[mi].map(item=>renderCalItem(item)).join('')
+            : '<div style="padding:9px;color:var(--muted);font-size:0.74rem;text-align:center;">–</div>')
+          +'</div></div>';
+
+        return '<div class="month-card" id="cmc-'+calYear+'-'+mi+'">'+monthTitle+monthBody+'</div>';
+      }).join('')
+    + '</div>';
 }
+
 
 
 
@@ -2939,7 +3127,9 @@ function icsEvent(uid, summary, dateStr, endDateStr, description){
 
 function exportICS(yearFilter){
   const year = yearFilter || calYear;
-  const evList = events.filter(e => year==='all' || e.year==year);
+  const brand = activeBrand.calendar || 'all';
+  let evList = events.filter(e => year==='all' || e.year==year);
+  if(brand !== 'all') evList = evList.filter(e => getBrand(e) === brand);
   let vevents = '';
   let count = 0;
 
@@ -2967,10 +3157,12 @@ function exportICS(yearFilter){
   const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `Eventplanering_${year}.ics`;
+  const brandSuffix = (activeBrand.calendar && activeBrand.calendar !== 'all') ? '_'+activeBrand.calendar.replace(/[^a-zA-Z0-9]/g,'') : '';
+  a.download = `Eventplanering_${year}${brandSuffix}.ics`;
   a.click();
   URL.revokeObjectURL(a.href);
-  alert(`✅ Exporterade ${count} aktiviteter till .ics-fil.\n\nImportera i Outlook: Arkiv → Öppna och exportera → Importera/exportera → Importera en iCalendar-fil (.ics)`);
+  const brandInfo = (activeBrand.calendar && activeBrand.calendar !== 'all') ? ' för '+activeBrand.calendar : '';
+  alert(`✅ Exporterade ${count} aktiviteter${brandInfo} till .ics-fil.\n\nImportera i Outlook: Arkiv → Öppna och exportera → Importera/exportera → Importera en iCalendar-fil (.ics)`);
 }
 
 
@@ -3252,6 +3444,92 @@ function renderStudio(){
   }).join('');
 }
 
+// ── EXPORT XLSX ───────────────────────────────────────────────
+function exportXLSX(){
+  const wb = XLSX.utils.book_new();
+  const headers = ['Varumärke','År','Event','Datum','Lokal','Mål betalande','Mål gäster','Mål totalt','Faktiskt betalande','Faktiskt gäster','Faktiskt totalt','Diff','Uppfyllnad %'];
+  const rows = [headers];
+  events.forEach(e=>{
+    const ap=getAP(e.id),af=getAF(e.id),at=getAT(e.id);
+    rows.push([getBrand(e),e.year,getName(e),getDate(e),getVenue(e),getPaying(e),getGuests(e)??'',getTotal(e),ap??'',af??'',at??'',at!==null?at-getTotal(e):'',at!==null?Math.round(at/getTotal(e)*100):'']);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = headers.map((_,i)=>({wch:i<5?22:12}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Utfall');
+  const brands=[...new Set(events.map(e=>getBrand(e)))];
+  const sumRows=[['Varumärke','Events','Inmatade','Mål tot.','Faktiskt tot.','Uppfyllnad %']];
+  brands.forEach(b=>{
+    const evs=events.filter(e=>getBrand(e)===b);
+    const filled=evs.filter(e=>getAT(e.id)!==null);
+    const tg=evs.reduce((s,e)=>s+getTotal(e),0);
+    const ta=filled.reduce((s,e)=>s+getAT(e.id),0);
+    sumRows.push([b,evs.length,filled.length,tg,ta||'',ta&&tg?Math.round(ta/tg*100):'']);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(sumRows);
+  ws2['!cols']=[{wch:22},{wch:10},{wch:10},{wch:12},{wch:14},{wch:13}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Sammanfattning');
+  XLSX.writeFile(wb,'Eventplanering_utfall.xlsx');
+}
+
+// ── YEAR COMPARISON ───────────────────────────────────────────
+let yearCompareOpen=false;
+function toggleYearCompare(){
+  yearCompareOpen=!yearCompareOpen;
+  const panel=document.getElementById('year-compare-panel');
+  const btn=document.getElementById('btn-year-compare');
+  if(panel) panel.style.display=yearCompareOpen?'block':'none';
+  if(btn){btn.style.borderColor=yearCompareOpen?'var(--accent)':'var(--border)';btn.style.color=yearCompareOpen?'var(--accent)':'var(--muted)';}
+  if(yearCompareOpen) renderYearCompare();
+}
+function renderYearCompare(){
+  const panel=document.getElementById('year-compare-panel');if(!panel)return;
+  const years=[...new Set(events.map(e=>e.year))].sort();
+  if(years.length<2){panel.innerHTML='<div style="color:var(--muted);font-size:0.82rem;">Behöver data från minst 2 år för jämförelse.</div>';return;}
+  const byName={};
+  events.forEach(e=>{const n=getName(e);if(!byName[n])byName[n]={};byName[n][e.year]=e;});
+  const recurring=Object.entries(byName).filter(([,yrs])=>Object.keys(yrs).length>1);
+  if(!recurring.length){panel.innerHTML='<div style="color:var(--muted);font-size:0.82rem;">Inga återkommande event med data från flera år hittades.</div>';return;}
+  const cols=years.map(y=>`<th style="padding:6px 10px;font-size:0.68rem;text-transform:uppercase;color:var(--muted);">${y}</th>`).join('');
+  const rowsHtml=recurring.map(([name,yrs])=>{
+    const cells=years.map(y=>{
+      const ev=yrs[y];if(!ev)return'<td style="padding:6px 10px;color:var(--muted);font-size:0.78rem;">–</td>';
+      const at=getAT(ev.id),goal=getTotal(ev),pct=at!==null?Math.round(at/goal*100):null,col=pcol(pct);
+      return`<td style="padding:6px 10px;font-size:0.78rem;"><div style="font-weight:700;color:${col}">${at!==null?at:'–'}</div><div style="font-size:0.65rem;color:var(--muted);">mål ${goal}${pct!==null?' · '+pct+'%':''}</div></td>`;
+    }).join('');
+    return`<tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 10px;font-size:0.78rem;font-weight:600;">${name}</td>${cells}</tr>`;
+  }).join('');
+  panel.innerHTML=`<div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">År-mot-år — återkommande event</div><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="border-bottom:1px solid var(--border);"><th style="padding:6px 10px;font-size:0.68rem;text-transform:uppercase;color:var(--muted);text-align:left;">Event</th>${cols}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+
+// ── TREND CHART ───────────────────────────────────────────────
+function showTrend(id){
+  const ev=getEv(id);if(!ev)return;
+  const name=getName(ev);
+  const series=events.filter(e=>getName(e)===name&&getAT(e.id)!==null).sort((a,b)=>a.year-b.year);
+  const panel=document.getElementById('trend-panel');
+  const body=document.getElementById('trend-body');
+  const title=document.getElementById('trend-title');
+  if(!panel||!body)return;
+  if(series.length<2){panel.style.display='none';return;}
+  panel.style.display='block';
+  if(title)title.textContent='📈 Trend – '+name;
+  const maxVal=Math.max(...series.map(e=>Math.max(getAT(e.id),getTotal(e))));
+  const bars=series.map(e=>{
+    const at=getAT(e.id),goal=getTotal(e),pct=Math.round(at/goal*100),col=pcol(pct);
+    const barH=Math.round(at/maxVal*80),goalH=Math.round(goal/maxVal*80);
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:60px;">
+      <div style="font-size:0.68rem;font-weight:700;color:${col}">${pct}%</div>
+      <div style="position:relative;width:100%;height:90px;display:flex;align-items:flex-end;justify-content:center;gap:3px;">
+        <div style="width:28px;height:${barH}px;background:${col};border-radius:4px 4px 0 0;" title="Faktiskt: ${at}"></div>
+        <div style="width:4px;height:${goalH}px;background:rgba(255,255,255,0.2);border-radius:4px 4px 0 0;" title="Mål: ${goal}"></div>
+      </div>
+      <div style="font-size:0.72rem;font-weight:700;">${e.year}</div>
+      <div style="font-size:0.65rem;color:var(--muted);">${at} / ${goal}</div>
+    </div>`;
+  }).join('');
+  body.innerHTML=`<div style="display:flex;gap:8px;align-items:flex-end;">${bars}</div><div style="display:flex;gap:14px;margin-top:10px;font-size:0.65rem;color:var(--muted);"><span>█ Faktiskt</span><span style="opacity:0.4;">█ Mål</span></div>`;
+}
+
 // ── EXPORT ────────────────────────────────────────────────────
 function exportCSV(){
   const rows=[['Varumärke','År','Event','Datum','Lokal','Mål betalande','Mål gäster','Mål totalt','Faktiskt betalande','Faktiskt gäster','Faktiskt totalt','Diff','Uppfyllnad %']];
@@ -3494,15 +3772,20 @@ function openDetailPanel(id){
   const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
   const customCheckHtml = checks.length
     ? checks.map(function(c,idx){
-        return '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;">'
+        const dateVal = c.date||'';
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">'
           +'<input type="checkbox"'+(c.done?' checked':'')+' onchange="toggleCustomCheck(\''+id+'\','+idx+',this.checked)"'
           +' style="width:15px;height:15px;cursor:pointer;accent-color:var(--green);flex-shrink:0;">'
-          +'<span style="flex:1;font-size:0.8rem;'+(c.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+(c.text||'')+'</span>'
+          +'<span style="flex:1;font-size:0.8rem;'+(c.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+c.text+'</span>'
+          +'<input type="date" value="'+dateVal+'"'
+          +' onchange="setCustomCheckDate(\''+id+'\','+idx+',this.value)"'
+          +' style="font-size:0.72rem;padding:3px 7px;border-radius:6px;border:1px solid '+(dateVal?'var(--accent2)':'var(--border)')+';background:var(--card2);color:'+(dateVal?'var(--accent2)':'var(--muted)')+';outline:none;flex-shrink:0;width:140px;">'
           +'<button onclick="event.preventDefault();deleteCustomCheck(\''+id+'\','+idx+')"'
-          +' style="font-size:0.62rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">✕</button>'
-          +'</label>';
+          +' style="font-size:0.62rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;flex-shrink:0;">✕</button>'
+          +'</div>';
       }).join('')
     : '<div style="font-size:0.75rem;color:var(--muted);padding:4px 0;">Inga egna checkpunkter — lägg till nedan</div>';
+
 
   const chkSection = section('✅','Checklista','var(--green)',
     '<div style="margin-bottom:12px;">'
@@ -3800,8 +4083,9 @@ function renderCustomChecks(id, info){
       +'<span style="flex:1;font-size:0.8rem;'+(c.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+c.text+'</span>'
       +'<input type="date" value="'+dateVal+'"'
       +' onchange="setCustomCheckDate(\''+id+'\','+idx+',this.value)"'
-      +' style="font-size:0.72rem;padding:3px 7px;border-radius:6px;border:1px solid var(--border);'
-      +'background:var(--card2);color:'+(dateVal?'var(--accent2)':'var(--muted)')+';outline:none;flex-shrink:0;">'
+      +' style="font-size:0.72rem;padding:3px 7px;border-radius:6px;'
+      +'border:1px solid '+(dateVal?'var(--accent2)':'var(--border)')+';'
+      +'background:var(--card2);color:'+(dateVal?'var(--accent2)':'var(--muted)')+';outline:none;flex-shrink:0;width:140px;">'
       +'<button onclick="event.stopPropagation();deleteCustomCheck(\''+id+'\','+idx+')"'
       +' style="font-size:0.62rem;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;flex-shrink:0;">✕</button>'
       +'</div>';
@@ -3811,12 +4095,15 @@ function renderCustomChecks(id, info){
 function addCustomCheck(id){
   const input = document.getElementById('new-check-'+id);
   if(!input || !input.value.trim()) return;
+  const dateInput = document.getElementById('new-check-date-'+id);
+  const dateVal = dateInput ? dateInput.value : '';
   const info = getEventInfo(id);
   const checks = info.custom_checks ? JSON.parse(info.custom_checks) : [];
-  checks.push({text: input.value.trim(), done: false, date: ''});
+  checks.push({text: input.value.trim(), done: false, date: dateVal});
   info.custom_checks = JSON.stringify(checks);
   saveEventInfo(id, info);
   input.value = '';
+  if(dateInput) dateInput.value = '';
   openDetailPanel(id);
 }
 
@@ -3850,10 +4137,345 @@ function deleteCustomCheck(id, idx){
   openDetailPanel(id);
 }
 
+// ── THEME ─────────────────────────────────────────────────────
+function toggleTheme(){
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('ep_theme', isLight ? 'light' : 'dark');
+  const btn = document.getElementById('theme-btn');
+  if(btn) btn.textContent = isLight ? '☀️' : '🌙';
+}
+function loadTheme(){
+  const saved = localStorage.getItem('ep_theme');
+  if(saved === 'light'){
+    document.documentElement.classList.add('light');
+    const btn = document.getElementById('theme-btn');
+    if(btn) btn.textContent = '☀️';
+  }
+}
+
+
+// ── NYTT ÅR ────────────────────────────────────────────────────
+function getActiveYears(){
+  // Collect years from both hardcoded and custom events
+  const years = [...new Set(events.map(e=>e.year))].sort();
+  return years;
+}
+
+function openNewYearModal(){
+  const existingYears = getActiveYears();
+  const maxYear = Math.max(...existingYears, 2026);
+  const nextYear = maxYear + 1;
+  const fromYear = maxYear;
+
+  const body = document.getElementById('new-year-body');
+  const footer = document.getElementById('new-year-footer');
+  if(!body || !footer) return;
+
+  body.innerHTML = `
+    <div style="margin-bottom:4px;">
+      <div style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">
+        Aktiva år: <strong style="color:var(--text)">${existingYears.join(', ')}</strong>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px;">
+        <label class="form-label">Nytt år att lägga till</label>
+        <input class="form-input" id="ny-year" type="number" value="${nextYear}" min="2024" max="2035">
+      </div>
+
+      <div style="background:var(--card2);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">
+          Vad ska kopieras från ${fromYear}?
+        </div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="ny-copy-events" checked style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:0.82rem;font-weight:600;">📅 Kopiera event som mallar</div>
+            <div style="font-size:0.72rem;color:var(--muted);">Samma namn och lokal, nytt datum och år. Utfall nollställs.</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="ny-copy-goals" checked style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:0.82rem;font-weight:600;">🎯 Kopiera mål från ${fromYear}</div>
+            <div style="font-size:0.72rem;color:var(--muted);">Betalande, gäster och totalt mål kopieras till det nya året.</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+          <input type="checkbox" id="ny-copy-sched" style="width:16px;height:16px;accent-color:var(--accent);">
+          <div>
+            <div style="font-size:0.82rem;font-weight:600;">📆 Kopiera planeringsmall</div>
+            <div style="font-size:0.72rem;color:var(--muted);">Möten och säljperioder kopieras (datum justeras +1 år).</div>
+          </div>
+        </label>
+      </div>
+    </div>
+  `;
+
+  footer.innerHTML = `
+    <button class="btn btn-cancel" onclick="closeNewYearModal()">Avbryt</button>
+    <button class="btn btn-primary" onclick="createNewYear()">📅 Skapa ${nextYear}</button>
+  `;
+
+  document.getElementById('new-year-modal').style.display = 'flex';
+}
+
+function closeNewYearModal(){
+  const el = document.getElementById('new-year-modal');
+  if(el) el.style.display = 'none';
+}
+
+function createNewYear(){
+  const yearInput = document.getElementById('ny-year');
+  const copyEvents = document.getElementById('ny-copy-events')?.checked;
+  const copyGoals  = document.getElementById('ny-copy-goals')?.checked;
+  const copySched  = document.getElementById('ny-copy-sched')?.checked;
+
+  const newYear = parseInt(yearInput?.value);
+  if(!newYear || newYear < 2024 || newYear > 2035){ alert('Ogiltigt år'); return; }
+
+  const existingYears = getActiveYears();
+  const fromYear = Math.max(...existingYears);
+
+  if(existingYears.includes(newYear)){
+    if(!confirm(`År ${newYear} finns redan med ${events.filter(e=>e.year===newYear).length} event. Fortsätta ändå?`)) return;
+  }
+
+  const sourceEvents = events.filter(e => e.year === fromYear);
+  let added = 0;
+
+  if(copyEvents){
+    sourceEvents.forEach(ev => {
+      // Adjust date by +1 year
+      let newDate = '';
+      const d = parseDate(getDate(ev));
+      if(d) newDate = `${d.y+1}-${String(d.m0+1).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+
+      const newEv = {
+        id: 'e'+(idCounter++),
+        name: ev.name,
+        brand: ev.brand || getBrand(ev),
+        year: newYear,
+        date: newDate || '',
+        venue: getVenue(ev),
+        paying: copyGoals ? getPaying(ev) : 0,
+        guests: copyGoals ? (getGuests(ev)||0) : 0,
+        total:  copyGoals ? getTotal(ev) : 0,
+        eventType: ev.eventType || 'event',
+      };
+      events.push(newEv);
+
+      if(copySched){
+        const s = getSched(ev);
+        if(s){
+          const shiftDate = ds => {
+            if(!ds) return null;
+            const d = parseDate(ds);
+            return d ? `${d.y+1}-${String(d.m0+1).padStart(2,'0')}-${String(d.d).padStart(2,'0')}` : null;
+          };
+          const newSched = {};
+          if(s.meeting1) newSched.meeting1 = shiftDate(s.meeting1);
+          if(s.meeting2) newSched.meeting2 = shiftDate(s.meeting2);
+          if(s.meeting3) newSched.meeting3 = shiftDate(s.meeting3);
+          if(s.digitalFrom) newSched.digitalFrom = shiftDate(s.digitalFrom);
+          if(s.digitalTo)   newSched.digitalTo   = shiftDate(s.digitalTo);
+          if(s.manualFrom)  newSched.manualFrom   = shiftDate(s.manualFrom);
+          if(s.manualTo)    newSched.manualTo     = shiftDate(s.manualTo);
+          edits[newEv.id] = { schedule: newSched };
+        }
+      }
+      added++;
+    });
+  }
+
+  // Update year filter buttons across all tabs
+  updateYearButtons(newYear);
+  saveAll();
+  closeNewYearModal();
+  renderCalendar();
+  renderTracker();
+  renderDashboard();
+
+  const msg = copyEvents
+    ? `✅ År ${newYear} skapat!\n${added} event kopierade från ${fromYear} som mallar.\nKom ihåg att uppdatera datum och mål.`
+    : `✅ År ${newYear} lagt till i filtren!`;
+  alert(msg);
+}
+
+function updateYearButtons(newYear){
+  // Add year to all filter rows if not already there
+  const filterRows = document.querySelectorAll('.filter-row, #brand-bar-tracker, #brand-bar-calendar');
+  // Find year filter containers specifically
+  const yearContainers = [
+    document.querySelector('#tab-tracker .filter-row'),
+    document.querySelector('#tab-calendar .filter-row'),
+  ];
+  yearContainers.forEach(container => {
+    if(!container) return;
+    const exists = [...container.querySelectorAll('.fbtn')].some(b=>b.textContent.trim()==String(newYear));
+    if(!exists){
+      const btn = document.createElement('button');
+      btn.className = 'fbtn';
+      btn.textContent = newYear;
+      btn.onclick = function(){ setYear(String(newYear), this); };
+      // Insert before last button (usually a select/filter)
+      const lastBtn = [...container.querySelectorAll('.fbtn')].pop();
+      if(lastBtn && lastBtn.nextSibling) container.insertBefore(btn, lastBtn.nextSibling);
+      else container.appendChild(btn);
+    }
+  });
+  // Also update details year filter dropdown
+  const detailsYearFilter = document.getElementById('details-year-filter');
+  if(detailsYearFilter){
+    const exists = [...detailsYearFilter.options].some(o=>o.value==String(newYear));
+    if(!exists){
+      const opt = document.createElement('option');
+      opt.value = newYear; opt.textContent = newYear;
+      detailsYearFilter.appendChild(opt);
+    }
+  }
+  // Update studio year filter
+  const studioYearFilter = document.getElementById('studio-year-filter');
+  if(studioYearFilter){
+    const exists = [...studioYearFilter.options].some(o=>o.value==String(newYear));
+    if(!exists){
+      const opt = document.createElement('option');
+      opt.value = newYear; opt.textContent = newYear;
+      studioYearFilter.appendChild(opt);
+    }
+  }
+}
+
+// Auto-detect new years from imported events
+function autoUpdateYearButtons(){
+  const years = getActiveYears();
+  years.forEach(y => updateYearButtons(y));
+}
+
+
+// ── EXPORT ICS DIALOG ─────────────────────────────────────────
+function openExportICSModal(){
+  const brands = ['Alla varumärken', ...new Set(events.map(e=>getBrand(e)).filter(Boolean))];
+  const years = [...new Set(events.map(e=>e.year))].sort();
+  const activeBrandVal = activeBrand.calendar || 'all';
+
+  document.getElementById('export-ics-body').innerHTML = `
+    <div class="form-group">
+      <label class="form-label">År</label>
+      <select class="form-select" id="exp-year">
+        ${years.map(y=>`<option value="${y}" ${y==calYear?'selected':''}>${y}</option>`).join('')}
+        <option value="all">Alla år</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Varumärke</label>
+      <select class="form-select" id="exp-brand">
+        <option value="all" ${activeBrandVal==='all'?'selected':''}>Alla varumärken</option>
+        ${['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen'].map(b=>
+          `<option value="${b}" ${activeBrandVal===b?'selected':''}>${b}</option>`
+        ).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Vad ska exporteras?</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="exp-meetings" checked style="width:15px;height:15px;accent-color:var(--accent);">
+          <span style="font-size:0.82rem;">🟡 Möten (Startmöte, Avstämning, Program klart)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="exp-events" style="width:15px;height:15px;accent-color:var(--accent);">
+          <span style="font-size:0.82rem;">📅 Eventdatum</span>
+        </label>
+      </div>
+    </div>
+  `;
+  document.getElementById('export-ics-modal').style.display = 'flex';
+}
+
+function doExportICS(){
+  const year = document.getElementById('exp-year')?.value || calYear;
+  const brand = document.getElementById('exp-brand')?.value || 'all';
+  const inclMeetings = document.getElementById('exp-meetings')?.checked;
+  const inclEvents = document.getElementById('exp-events')?.checked;
+
+  if(!inclMeetings && !inclEvents){
+    alert('Välj minst ett alternativ att exportera.');
+    return;
+  }
+
+  let evList = events.filter(e => year==='all' || e.year==year);
+  if(brand !== 'all') evList = evList.filter(e => getBrand(e) === brand);
+
+  let vevents = '';
+  let count = 0;
+
+  evList.forEach(ev => {
+    const s = getSched(ev);
+    const name = getName(ev);
+    const evBrand = getBrand(ev);
+
+    // Export event date
+    if(inclEvents && getDate(ev)){
+      vevents += icsEvent(makeUID(ev.id,'event'), name, getDate(ev), getDate(ev), evBrand+' · '+(getVenue(ev)||''));
+      count++;
+    }
+
+    // Export meetings
+    if(inclMeetings && s){
+      const meetingNames = ['Startmöte program','Avstämningsmöte','Möte program klart'];
+      [1,2,3].forEach(n=>{
+        const d = s['meeting'+n];
+        if(d){
+          vevents += icsEvent(makeUID(ev.id,'m'+n), meetingNames[n-1]+' – '+name, d, d, evBrand+' · '+(getVenue(ev)||''));
+          count++;
+        }
+      });
+    }
+  });
+
+  const ics = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Eventplanering//Dashboard//SV
+CALSCALE:GREGORIAN
+X-WR-CALNAME:Eventplanering ${year}
+X-WR-TIMEZONE:Europe/Stockholm
+${vevents}END:VCALENDAR`;
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const brandSuffix = brand !== 'all' ? '_'+brand.replace(/[^a-zA-Z0-9]/g,'') : '';
+  a.download = `Eventplanering_${year}${brandSuffix}.ics`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  document.getElementById('export-ics-modal').style.display = 'none';
+  alert(`✅ Exporterade ${count} aktiviteter till .ics-fil.\n\nImportera i Outlook: Arkiv → Öppna och exportera → Importera/exportera → Importera en iCalendar-fil (.ics)`);
+}
+
 // ── INIT ──────────────────────────────────────────────────────
+// Dubblerings-kontroll — körs vid sidladdning
+(function checkForDuplication(){
+  try{
+    const allScripts = document.querySelectorAll('script:not([src])');
+    let count = 0;
+    allScripts.forEach(s=>{ if(s.textContent.includes('const SCRIPT_URL')) count++; });
+    const sizeKB = Math.round(document.documentElement.outerHTML.length / 1024);
+    console.log('📋 Dashboardstatus: '+sizeKB+'KB, '+count+' script-block'+(count===1?' ✅':' ⚠️'));
+    if(count > 1){
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#ff6b6b;color:white;padding:10px 20px;font-size:0.85rem;font-weight:700;text-align:center;display:flex;justify-content:space-between;align-items:center;';
+      el.innerHTML = '<span>⚠️ Filen är duplicerad ('+count+'x) — ladda ner ny version från Claude och ladda upp till GitHub.</span>'
+        +'<button onclick="this.parentElement.remove()" style="background:transparent;border:1px solid white;color:white;padding:3px 10px;border-radius:5px;cursor:pointer;font-size:0.8rem;">✕</button>';
+      document.body.appendChild(el);
+    }
+  }catch(e){}
+})();
+
 checkAuth();
+loadTheme();
 loadAll();
+
 syncStudioToCalendar();
+autoUpdateYearButtons();
 renderDashboard();
 renderTracker();
 if(SCRIPT_URL){
@@ -3995,6 +4617,23 @@ setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); re
         ✏️ Redigera i Eventinfo
       </button>
       <button class="btn btn-primary" id="summary-export-btn">📥 Exportera till Excel</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ═══ EXPORT ICS MODAL ═══ -->
+<div class="modal-bg" id="export-ics-modal" style="display:none;" onclick="if(event.target===this)document.getElementById('export-ics-modal').style.display='none'">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>📅 Exportera till Outlook</h3>
+      <button class="modal-close" onclick="document.getElementById('export-ics-modal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="export-ics-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="document.getElementById('export-ics-modal').style.display='none'">Avbryt</button>
+      <button class="btn btn-primary" onclick="doExportICS()">📥 Exportera</button>
     </div>
   </div>
 </div>
