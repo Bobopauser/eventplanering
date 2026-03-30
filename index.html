@@ -1019,7 +1019,7 @@ function getPayload(){
 
 function saveAll() {
   autoUpdateYearButtons();
-  // Always save locally as backup
+  // Always save to localStorage as cache/backup
   localStorage.setItem('ep_actuals5', JSON.stringify(actuals));
   localStorage.setItem('ep_edits5',   JSON.stringify(edits));
   localStorage.setItem('ep_events5',  JSON.stringify(events));
@@ -1030,14 +1030,14 @@ function saveAll() {
   const n = document.getElementById('save-note');
 
   if(!SCRIPT_URL){
-    n.textContent = '✓ Sparad lokalt ' + new Date().toLocaleTimeString('sv');
+    if(n) n.textContent = '✓ Sparad lokalt ' + new Date().toLocaleTimeString('sv');
     clearTimeout(saveAll._t);
-    saveAll._t = setTimeout(()=> n.textContent = 'Sparas lokalt (ingen URL konfigurerad)', 2500);
+    saveAll._t = setTimeout(()=>{ if(n) n.textContent = 'Sparas lokalt'; }, 3000);
     return;
   }
 
-  // Save to Google Sheets
-  n.textContent = '☁️ Sparar...';
+  // Save immediately to Sheets (Sheets is primary source)
+  if(n) n.textContent = '☁️ Sparar...';
   clearTimeout(saveAll._t);
   fetch(SCRIPT_URL, {
     method: 'POST',
@@ -1045,52 +1045,75 @@ function saveAll() {
   })
   .then(r => r.json())
   .then(res => {
-    n.textContent = res.ok ? '✓ Sparad i molnet ' + new Date().toLocaleTimeString('sv') : '⚠ Fel vid sparning';
-    saveAll._t = setTimeout(()=> n.textContent = '☁️ Google Sheets', 3000);
+    if(n) n.textContent = res.ok ? '✓ Sparad ' + new Date().toLocaleTimeString('sv') : '⚠ Fel vid sparning';
+    saveAll._t = setTimeout(()=>{ if(n) n.textContent = '☁️ Google Sheets'; }, 3000);
   })
   .catch(()=> {
-    n.textContent = '⚠ Offline – sparad lokalt';
-    saveAll._t = setTimeout(()=> n.textContent = '☁️ Google Sheets (offline)', 3000);
+    // Sheets failed — data is safe in localStorage
+    if(n) n.textContent = '⚠ Offline – sparad lokalt';
+    saveAll._t = setTimeout(()=>{ if(n) n.textContent = '☁️ Google Sheets (offline)'; }, 4000);
   });
 }
 
 function loadFromCloud(callback){
   if(!SCRIPT_URL){ callback(false); return; }
   const n = document.getElementById('save-note');
-  n.textContent = '☁️ Hämtar data...';
+  if(n) n.textContent = '☁️ Hämtar...';
+
+  // Load localStorage as fallback first so UI shows something instantly
+  loadAll();
+
   fetch(SCRIPT_URL + '?action=read')
   .then(r => r.json())
   .then(data => {
     if(data && typeof data === 'object' && !data.error){
-      // Merge cloud data into state
-      if(data.actuals)  actuals  = data.actuals;
-      if(data.edits)    edits    = data.edits;
-      if(data.notes)    notes    = data.notes;
-      if(data.tasks)    tasks    = data.tasks;
-      if(data.doneActs) doneActs = data.doneActs;
+      // Sheets is primary — overwrite local state with cloud data
+      if(data.actuals)        actuals        = data.actuals;
+      if(data.edits)          edits          = data.edits;
+      if(data.notes)          notes          = data.notes;
+      if(data.tasks)          tasks          = data.tasks;
+      if(data.doneActs)       doneActs       = data.doneActs;
       if(data.studioBookings) studioBookings = data.studioBookings;
-      // Restore event info from edits
-      events.forEach(ev=>{ if(edits[ev.id]?.info){ localStorage.setItem('ep_info_'+ev.id, JSON.stringify(edits[ev.id].info)); } });
-      // Merge custom events (avoid duplicates)
+
+      // Restore event info from edits into localStorage
+      events.forEach(ev=>{
+        if(edits[ev.id]?.info){
+          localStorage.setItem('ep_info_'+ev.id, JSON.stringify(edits[ev.id].info));
+        }
+      });
+
+      // Merge custom events — cloud wins for existing, add new ones
       if(data.events && data.events.length){
-        const baseIds = new Set(events.map(e=>e.id));
-        data.events.forEach(e=>{ if(!baseIds.has(e.id)) events.push(e); });
+        const cloudIds = new Set(data.events.map(e=>e.id));
+        // Remove local custom events that exist in cloud (cloud version is authoritative)
+        events = events.filter(e => !cloudIds.has(e.id) || BASE_EVENTS.find(b=>b.name===e.name));
+        // Add all cloud events
+        const existIds = new Set(events.map(e=>e.id));
+        data.events.forEach(e=>{ if(!existIds.has(e.id)) events.push(e); });
+        // Update idCounter
+        const maxId = Math.max(...events.map(e=>parseInt(e.id.replace('e',''))||0));
+        if(maxId >= idCounter) idCounter = maxId + 1;
       }
-      // Also save to localStorage as backup
+
+      // Cache to localStorage so offline fallback is fresh
       localStorage.setItem('ep_actuals5', JSON.stringify(actuals));
       localStorage.setItem('ep_edits5',   JSON.stringify(edits));
+      localStorage.setItem('ep_events5',  JSON.stringify(events));
       localStorage.setItem('ep_notes',    JSON.stringify(notes));
       localStorage.setItem('ep_tasks',    JSON.stringify(tasks));
       localStorage.setItem('ep_done',     JSON.stringify(doneActs));
-      n.textContent = '☁️ Google Sheets';
+
+      if(n) n.textContent = '☁️ Google Sheets';
       callback(true);
     } else {
-      n.textContent = '☁️ Google Sheets (tom)';
+      // Empty or error response — keep localStorage data
+      if(n) n.textContent = '⚠ Sheets tom – använder lokal data';
       callback(false);
     }
   })
   .catch(()=>{
-    n.textContent = '⚠ Offline – använder lokal data';
+    // Network error — localStorage data already loaded, just show warning
+    if(n) n.textContent = '⚠ Offline – lokal data';
     callback(false);
   });
 }
@@ -4472,16 +4495,43 @@ ${vevents}END:VCALENDAR`;
 
 checkAuth();
 loadTheme();
-loadAll();
 
-syncStudioToCalendar();
-autoUpdateYearButtons();
-renderDashboard();
-renderTracker();
-if(SCRIPT_URL){
-  loadFromCloud(success=>{ if(success){ renderDashboard(); renderTracker(); } });
+// ── STARTUP: Sheets primär källa, localStorage fallback ────────
+function startup(){
+  const n = document.getElementById('save-note');
+  if(SCRIPT_URL){
+    if(n) n.textContent = '☁️ Hämtar från Google Sheets...';
+    loadFromCloud(success=>{
+      if(success){
+        if(n) n.textContent = '☁️ Google Sheets';
+        // Sheets had data — use it
+      } else {
+        // Sheets failed — fall back to localStorage
+        if(n) n.textContent = '⚠ Offline – använder lokal data';
+        loadAll();
+      }
+      syncStudioToCalendar();
+      autoUpdateYearButtons();
+      renderDashboard();
+      renderTracker();
+    });
+  } else {
+    // No Sheets URL — use localStorage directly
+    loadAll();
+    syncStudioToCalendar();
+    autoUpdateYearButtons();
+    renderDashboard();
+    renderTracker();
+  }
 }
-setInterval(()=>{ if(SCRIPT_URL) loadFromCloud(s=>{ if(s){ renderDashboard(); renderTracker(); } }); },30000);
+
+startup();
+
+// Auto-refresh from Sheets every 60 seconds
+setInterval(()=>{
+  if(!SCRIPT_URL) return;
+  loadFromCloud(s=>{ if(s){ renderDashboard(); renderTracker(); } });
+}, 60000);
 </script>
 
 
