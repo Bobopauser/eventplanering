@@ -621,9 +621,11 @@ function loadUsersFromSheet(callback){
     .then(text=>{
       try{
         const data = JSON.parse(text);
-        if(data && data.users && data.users.length > 0){
+        // Handle both {users:[...]} and direct array format
+        const userList = Array.isArray(data) ? data : (data.users || []);
+        if(userList.length > 0){
           sheetUsers = {};
-          data.users.forEach(u=>{ if(u.username&&u.password) sheetUsers[u.username.trim().toLowerCase()]=u.password.trim(); });
+          userList.forEach(u=>{ if(u.username&&u.password) sheetUsers[u.username.trim().toLowerCase()]=u.password.trim(); });
           callback(true);
         } else { callback(false); }
       } catch(e){ callback(false); }
