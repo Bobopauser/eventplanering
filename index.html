@@ -539,6 +539,11 @@
     background:transparent;color:var(--muted);cursor:pointer;">
     <span id="collapse-all-arrow" style="font-size:0.75rem;display:inline-block;transition:transform 0.2s;transform:rotate(0deg);">▾</span>
   </button>
+  <button onclick="toggleSaljstarter()" id="btn-saljstarter"
+    style="font-size:0.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);
+    background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:5px;">
+    🟠 Säljstarter
+  </button>
   <div id="month-picker" style="display:none;position:absolute;top:36px;left:14px;
     background:var(--card);border:1px solid var(--border);border-radius:12px;
     padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.4);z-index:999;width:220px;">
@@ -546,6 +551,13 @@
       letter-spacing:0.05em;margin-bottom:10px;text-align:center;">Välj månad</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="month-picker-grid"></div>
   </div>
+</div>
+<div id="saljstarter-panel" style="display:none;margin:0 14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+  <div style="padding:10px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-size:0.82rem;font-weight:700;">🟠 Säljstarter — alla event</span>
+    <button onclick="toggleSaljstarter()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem;">✕</button>
+  </div>
+  <div id="saljstarter-body" style="padding:12px 16px;max-height:400px;overflow-y:auto;"></div>
 </div>
 <div id="cal-grid"></div>
 </div>
@@ -4474,6 +4486,111 @@ ${vevents}END:VCALENDAR`;
   URL.revokeObjectURL(a.href);
   document.getElementById('export-ics-modal').style.display = 'none';
   alert(`✅ Exporterade ${count} aktiviteter till .ics-fil.\n\nImportera i Outlook: Arkiv → Öppna och exportera → Importera/exportera → Importera en iCalendar-fil (.ics)`);
+}
+
+
+// ── SÄLJSTARTER PANEL ─────────────────────────────────────────
+let saljstarterOpen = false;
+function toggleSaljstarter(){
+  saljstarterOpen = !saljstarterOpen;
+  const panel = document.getElementById('saljstarter-panel');
+  const btn = document.getElementById('btn-saljstarter');
+  if(panel) panel.style.display = saljstarterOpen ? 'block' : 'none';
+  if(btn){
+    btn.style.borderColor = saljstarterOpen ? 'var(--accent)' : 'var(--border)';
+    btn.style.color = saljstarterOpen ? 'var(--accent)' : 'var(--muted)';
+    btn.style.background = saljstarterOpen ? 'rgba(108,99,255,0.1)' : 'transparent';
+  }
+  if(saljstarterOpen) renderSaljstarter();
+}
+
+function renderSaljstarter(){
+  const body = document.getElementById('saljstarter-body');
+  if(!body) return;
+
+  const brand = activeBrand.calendar || 'all';
+  const evList = events.filter(e => {
+    if(calYear !== 'all' && e.year != calYear) return false;
+    if(brand !== 'all' && getBrand(e) !== brand) return false;
+    return true;
+  });
+
+  const items = [];
+  evList.forEach(ev => {
+    const s = getSched(ev);
+    if(!s) return;
+    const bc = BRAND_COLORS[getBrand(ev)] || 'var(--muted)';
+    const name = getName(ev);
+
+    if(s.digitalFrom){
+      items.push({ date: s.digitalFrom, dateTo: s.digitalTo, type: 'digital',
+        label: 'Digital försäljning', ev, name, bc, color: '#e65100', icon: '🟠' });
+    }
+    if(s.manualFrom){
+      items.push({ date: s.manualFrom, dateTo: s.manualTo, type: 'manual',
+        label: 'Manuell försäljning', ev, name, bc, color: '#2e7d32', icon: '🟢' });
+    }
+    if(s.warmupFrom){
+      items.push({ date: s.warmupFrom, dateTo: s.warmupTo, type: 'warmup',
+        label: 'Uppvärmning', ev, name, bc, color: '#9b59b6', icon: '🟣' });
+    }
+  });
+
+  // Sort by date
+  items.sort((a,b) => {
+    const da = parseDate(a.date), db = parseDate(b.date);
+    if(!da && !db) return 0; if(!da) return 1; if(!db) return -1;
+    return new Date(da.y,da.m0,da.d) - new Date(db.y,db.m0,db.d);
+  });
+
+  if(!items.length){
+    body.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;padding:8px 0;text-align:center;">Inga säljstarter hittade för valt filter.</div>';
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Group by month
+  const byMonth = {};
+  items.forEach(item => {
+    const d = parseDate(item.date);
+    if(!d) return;
+    const key = d.y + '-' + String(d.m0+1).padStart(2,'0');
+    if(!byMonth[key]) byMonth[key] = { label: MONTHS[d.m0] + ' ' + d.y, items: [] };
+    byMonth[key].items.push(item);
+  });
+
+  body.innerHTML = Object.entries(byMonth).map(([,group]) => {
+    const rows = group.items.map(item => {
+      const d = parseDate(item.date);
+      const evDate = d ? new Date(d.y,d.m0,d.d) : null;
+      const isPastItem = evDate && evDate < today;
+      const daysAway = evDate ? Math.round((evDate-today)/(1000*60*60*24)) : null;
+      const daysLabel = daysAway === null ? '' 
+        : daysAway === 0 ? '<span style="color:var(--red);font-weight:700;font-size:0.68rem;">Idag</span>'
+        : daysAway === 1 ? '<span style="color:var(--yellow);font-size:0.68rem;">Imorgon</span>'
+        : daysAway > 0 ? '<span style="color:var(--muted);font-size:0.68rem;">om '+daysAway+' dagar</span>'
+        : '<span style="color:var(--muted);font-size:0.68rem;font-style:italic;">Passerat</span>';
+
+      return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);opacity:'+(isPastItem?'0.45':'1')+'">'
+        +'<div style="width:3px;height:34px;border-radius:2px;background:'+item.bc+';flex-shrink:0;"></div>'
+        +'<div style="font-size:0.8rem;">' + item.icon + '</div>'
+        +'<div style="flex:1;min-width:0;">'
+          +'<div style="font-size:0.78rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+ item.name +'</div>'
+          +'<div style="font-size:0.68rem;color:var(--muted);">'+item.label+(item.dateTo?' · '+fmtShort(item.date)+' → '+fmtShort(item.dateTo):' · '+fmtShort(item.date))+'</div>'
+        +'</div>'
+        +'<div style="text-align:right;flex-shrink:0;">'
+          + daysLabel
+          +'<div style="margin-top:2px;">'+brandPill(getBrand(item.ev))+'</div>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+
+    return '<div style="margin-bottom:14px;">'
+      +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">'+group.label+'</div>'
+      + rows
+      +'</div>';
+  }).join('');
 }
 
 // ── INIT ──────────────────────────────────────────────────────
