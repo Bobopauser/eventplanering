@@ -365,6 +365,7 @@
   <div class="tab" onclick="showTab('calendar')">📆 Kalender</div>
   <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning</div>
   <div class="tab" onclick="showTab('details')">📋 Eventinfo</div>
+  <div class="tab" onclick="showTab('ekonomi')">💰 Ekonomi</div>
 </div>
 
 <!-- ═══ TRACKER ═══ -->
@@ -479,8 +480,6 @@
   </div>
   <div class="filter-row" style="margin-bottom:12px;">
     <button class="fbtn active" onclick="setCalYear('2026',this)">2026</button>
-    <button class="fbtn" onclick="setCalYear('2027',this)">2027</button>
-    <button class="fbtn" onclick="setCalYear('2028',this)">2028</button>
   </div>
   <!-- Legend -->
   <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
@@ -553,9 +552,15 @@
   </div>
 </div>
 <div id="saljstarter-panel" style="display:none;margin:0 14px 16px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-  <div style="padding:10px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+  <div style="padding:10px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
     <span style="font-size:0.82rem;font-weight:700;">🟠 Säljstarter — alla event</span>
-    <button onclick="toggleSaljstarter()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem;">✕</button>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button id="sf-all" onclick="setSaljFilter('all',this)" class="fbtn active" style="font-size:0.68rem;padding:3px 9px;">Alla</button>
+      <button onclick="setSaljFilter('warmup',this)" class="fbtn" style="font-size:0.68rem;padding:3px 9px;border-color:#9b59b6;color:#9b59b6;">🟣 Uppvärmning</button>
+      <button onclick="setSaljFilter('digital',this)" class="fbtn" style="font-size:0.68rem;padding:3px 9px;border-color:#e65100;color:#e65100;">🟠 Digital</button>
+      <button onclick="setSaljFilter('manual',this)" class="fbtn" style="font-size:0.68rem;padding:3px 9px;border-color:#2e7d32;color:#2e7d32;">🟢 Manuell</button>
+      <button onclick="toggleSaljstarter()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.8rem;margin-left:4px;">✕</button>
+    </div>
   </div>
   <div id="saljstarter-body" style="padding:12px 16px;max-height:400px;overflow-y:auto;"></div>
 </div>
@@ -626,7 +631,6 @@ function isLoggedIn(){
 
 function loadUsersFromSheet(callback){
   if(!SCRIPT_URL){ callback(false); return; }
-  // Use script redirect to avoid CORS issues
   const url = SCRIPT_URL + '?action=getUsers';
   fetch(url, {redirect:'follow'})
     .then(r=>r.text())
@@ -635,14 +639,29 @@ function loadUsersFromSheet(callback){
         const data = JSON.parse(text);
         // Handle both {users:[...]} and direct array format
         const userList = Array.isArray(data) ? data : (data.users || []);
+        console.log('👤 Användare från Sheets:', userList);
         if(userList.length > 0){
           sheetUsers = {};
-          userList.forEach(u=>{ if(u.username&&u.password) sheetUsers[u.username.trim().toLowerCase()]=u.password.trim(); });
+          userList.forEach(u=>{
+            if(u.username && u.password){
+              sheetUsers[u.username.trim().toLowerCase()] = u.password.trim();
+            }
+          });
+          console.log('👤 sheetUsers:', sheetUsers);
           callback(true);
-        } else { callback(false); }
-      } catch(e){ callback(false); }
+        } else {
+          console.log('👤 Inga användare i Sheets — använder fallback');
+          callback(false);
+        }
+      } catch(e){
+        console.error('👤 Parse-fel:', e, text);
+        callback(false);
+      }
     })
-    .catch(()=>callback(false));
+    .catch(err=>{
+      console.error('👤 Fetch-fel:', err);
+      callback(false);
+    });
 }
 
 function doLogin(){
@@ -669,9 +688,11 @@ function doLogin(){
     setTimeout(()=>errEl.style.display='none', 3000);
   }
 
-  function checkCreds(users){
+  function checkCreds(users, alsoTryFallback){
     if(btn){ btn.textContent = 'Logga in'; btn.disabled = false; }
     if(users[user] !== undefined && users[user] === pass){
+      loginSuccess();
+    } else if(alsoTryFallback && FALLBACK_USERS[user] === pass){
       loginSuccess();
     } else {
       loginFail();
@@ -682,18 +703,13 @@ function doLogin(){
 
   // Try Google Sheets users first, fall back to FALLBACK_USERS
   if(SCRIPT_URL){
-    if(sheetUsers){
-      checkCreds(sheetUsers);
-    } else {
-      loadUsersFromSheet(ok=>{
-        if(ok && sheetUsers && Object.keys(sheetUsers).length > 0){
-          checkCreds(sheetUsers);
-        } else {
-          // Sheet failed or empty — use fallback
-          checkCreds(FALLBACK_USERS);
-        }
-      });
-    }
+    loadUsersFromSheet(ok=>{
+      if(ok && sheetUsers && Object.keys(sheetUsers).length > 0){
+        checkCreds(sheetUsers, true); // also try fallback if sheet user not found
+      } else {
+        checkCreds(FALLBACK_USERS);
+      }
+    });
   } else {
     checkCreds(FALLBACK_USERS);
   }
@@ -1214,17 +1230,18 @@ function yearOptions(selected) {
 
 // ── TABS ──────────────────────────────────────────────────────
 function showTab(t){
-  ['tracker','dashboard','calendar','details'].forEach(id=>{
+  ['tracker','dashboard','calendar','details','ekonomi'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el) el.style.display=id===t?'':'none';
   });
   document.querySelectorAll('.tab').forEach((el,i)=>
-    el.classList.toggle('active',['dashboard','calendar','tracker','details'][i]===t)
+    el.classList.toggle('active',['dashboard','calendar','tracker','details','ekonomi'][i]===t)
   );
   if(t==='dashboard')renderDashboard();
   if(t==='calendar') renderCalendar();
   if(t==='tracker')  renderTracker();
   if(t==='details')  renderDetails();
+  if(t==='ekonomi')  renderEkonomi();
 }
 
 // ── BRAND + YEAR FILTERS ──────────────────────────────────────
@@ -2251,7 +2268,7 @@ function renderCalItem(item){
           <button onclick="event.stopPropagation();showDetailSummary('${ev.id}')"
             style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--accent);
             background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;">
-            📋 Sammanfattning
+            📋 Eventinfo
           </button>
         </div>
       </div>`;
@@ -3906,7 +3923,7 @@ function openDetailPanel(id){
     +'<span style="font-size:0.8rem;color:var(--muted);">'+fmtShort(getDate(ev))+' · '+(getVenue(ev)||'Lokal ej satt')+'</span>'
     +'<button onclick="goToCalendarEvent(\''+id+'\',\''+ev.year+'\')" style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:auto;">📆 Kalender</button>'
     +'<button onclick="goToTracker(\''+id+'\')" style="font-size:0.68rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📊 Uppföljning</button>'
-    +'<button onclick="showDetailSummary(\''+id+'\')" style="font-size:0.68rem;padding:2px 10px;border-radius:5px;border:1px solid var(--accent2);background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;font-weight:600;">📋 Sammanfattning</button>'
+    +'<button onclick="showDetailSummary(\''+id+'\')" style="font-size:0.68rem;padding:2px 10px;border-radius:5px;border:1px solid var(--accent2);background:rgba(78,205,196,0.1);color:var(--accent2);cursor:pointer;font-weight:600;">📋 Eventinfo</button>'
     +'</div></div>'
     + chkSection
     + grundSection
@@ -4036,6 +4053,12 @@ function exportDetailExcel(id){
   const ev = getEv(id); if(!ev) return;
   const info = getEventInfo(id);
 
+  // Check if XLSX is available
+  if(typeof XLSX === 'undefined'){
+    alert('Excel-biblioteket laddades inte. Försök ladda om sidan.');
+    return;
+  }
+
   try {
     const wb = XLSX.utils.book_new();
     const rows = [
@@ -4086,26 +4109,28 @@ function exportDetailExcel(id){
       ['Eventkontakt 1 (8v)', info.chk_kontakt1?'Ja':''],
       ['Eventkontakt 2 (6v)', info.chk_kontakt2?'Ja':''],
       ['Kontakt lokal (6v)', info.chk_lokal?'Ja':''],
-      ['Deadline mat', info.deadline_mat||''],
-      ['Säljare', info.salja||''],
-      ['Noteringar', info.checknoteringar||''],
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    // Set column widths
     ws['!cols'] = [{wch:35},{wch:50}];
     XLSX.utils.book_append_sheet(wb, ws, 'Eventinfo');
-    XLSX.writeFile(wb, `Eventinfo_${getName(ev)}_${ev.year}.xlsx`);
-  } catch(err) {
-    // Fallback to CSV if SheetJS fails
-    const rows2 = [['Fält','Värde'],['Event',getName(ev)],['Varumärke',getBrand(ev)]];
-    const csv = rows2.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+
+    // Use writeFile with type array for better browser compatibility
+    const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    const blob = new Blob([wbout], {type:'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-    a.download = `Eventinfo_${getName(ev)}_${ev.year}.csv`;
+    a.href = url;
+    a.download = 'Eventinfo_' + getName(ev).replace(/[^a-zA-Z0-9åäöÅÄÖ\s]/g,'') + '_' + ev.year + '.xlsx';
+    document.body.appendChild(a);
     a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+  } catch(err) {
+    console.error('Excel export error:', err);
+    alert('Kunde inte exportera till Excel: ' + err.message);
   }
 }
+
 
 
 
@@ -4339,48 +4364,43 @@ function createNewYear(){
 }
 
 function updateYearButtons(newYear){
-  // Add year to all filter rows if not already there
-  const filterRows = document.querySelectorAll('.filter-row, #brand-bar-tracker, #brand-bar-calendar');
-  // Find year filter containers specifically
-  const yearContainers = [
-    document.querySelector('#tab-tracker .filter-row'),
-    document.querySelector('#tab-calendar .filter-row'),
-  ];
-  yearContainers.forEach(container => {
-    if(!container) return;
-    const exists = [...container.querySelectorAll('.fbtn')].some(b=>b.textContent.trim()==String(newYear));
+  // Calendar year filter
+  const calRow = document.querySelector('#tab-calendar .filter-row');
+  if(calRow){
+    const exists = [...calRow.querySelectorAll('.fbtn')].some(b=>b.textContent.trim()==String(newYear));
     if(!exists){
       const btn = document.createElement('button');
       btn.className = 'fbtn';
-      btn.textContent = newYear;
+      btn.textContent = String(newYear);
+      btn.onclick = function(){ setCalYear(String(newYear), this); };
+      const lastFbtn = [...calRow.querySelectorAll('.fbtn')].pop();
+      if(lastFbtn) lastFbtn.insertAdjacentElement('afterend', btn);
+    }
+  }
+  // Tracker year filter
+  const trackerRow = document.querySelector('#tab-tracker .filter-row');
+  if(trackerRow){
+    const exists = [...trackerRow.querySelectorAll('.fbtn')].some(b=>b.textContent.trim()==String(newYear));
+    if(!exists){
+      const btn = document.createElement('button');
+      btn.className = 'fbtn';
+      btn.textContent = String(newYear);
       btn.onclick = function(){ setYear(String(newYear), this); };
-      // Insert before last button (usually a select/filter)
-      const lastBtn = [...container.querySelectorAll('.fbtn')].pop();
-      if(lastBtn && lastBtn.nextSibling) container.insertBefore(btn, lastBtn.nextSibling);
-      else container.appendChild(btn);
+      const lastFbtn = [...trackerRow.querySelectorAll('.fbtn')].pop();
+      if(lastFbtn) lastFbtn.insertAdjacentElement('afterend', btn);
+    }
+  }
+  // Details + studio year filter dropdowns
+  ['details-year-filter','studio-year-filter'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if(sel && ![...sel.options].some(o=>o.value==String(newYear))){
+      const opt = document.createElement('option');
+      opt.value = newYear; opt.textContent = newYear;
+      sel.appendChild(opt);
     }
   });
-  // Also update details year filter dropdown
-  const detailsYearFilter = document.getElementById('details-year-filter');
-  if(detailsYearFilter){
-    const exists = [...detailsYearFilter.options].some(o=>o.value==String(newYear));
-    if(!exists){
-      const opt = document.createElement('option');
-      opt.value = newYear; opt.textContent = newYear;
-      detailsYearFilter.appendChild(opt);
-    }
-  }
-  // Update studio year filter
-  const studioYearFilter = document.getElementById('studio-year-filter');
-  if(studioYearFilter){
-    const exists = [...studioYearFilter.options].some(o=>o.value==String(newYear));
-    if(!exists){
-      const opt = document.createElement('option');
-      opt.value = newYear; opt.textContent = newYear;
-      studioYearFilter.appendChild(opt);
-    }
-  }
 }
+
 
 // Auto-detect new years from imported events
 function autoUpdateYearButtons(){
@@ -4491,6 +4511,14 @@ ${vevents}END:VCALENDAR`;
 
 // ── SÄLJSTARTER PANEL ─────────────────────────────────────────
 let saljstarterOpen = false;
+let saljFilter = 'all';
+function setSaljFilter(type, btn){
+  saljFilter = type;
+  document.querySelectorAll('#saljstarter-panel .fbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSaljstarter();
+}
+
 function toggleSaljstarter(){
   saljstarterOpen = !saljstarterOpen;
   const panel = document.getElementById('saljstarter-panel');
@@ -4522,15 +4550,15 @@ function renderSaljstarter(){
     const bc = BRAND_COLORS[getBrand(ev)] || 'var(--muted)';
     const name = getName(ev);
 
-    if(s.digitalFrom){
+    if(s.digitalFrom && (saljFilter==='all'||saljFilter==='digital')){
       items.push({ date: s.digitalFrom, dateTo: s.digitalTo, type: 'digital',
         label: 'Digital försäljning', ev, name, bc, color: '#e65100', icon: '🟠' });
     }
-    if(s.manualFrom){
+    if(s.manualFrom && (saljFilter==='all'||saljFilter==='manual')){
       items.push({ date: s.manualFrom, dateTo: s.manualTo, type: 'manual',
         label: 'Manuell försäljning', ev, name, bc, color: '#2e7d32', icon: '🟢' });
     }
-    if(s.warmupFrom){
+    if(s.warmupFrom && (saljFilter==='all'||saljFilter==='warmup')){
       items.push({ date: s.warmupFrom, dateTo: s.warmupTo, type: 'warmup',
         label: 'Uppvärmning', ev, name, bc, color: '#9b59b6', icon: '🟣' });
     }
@@ -4592,6 +4620,411 @@ function renderSaljstarter(){
       +'</div>';
   }).join('');
 }
+
+
+// ── EKONOMI ────────────────────────────────────────────────────
+// Data stored as ep_eko_{eventId} = { budget:{...}, utfall:{...} }
+// Intäkter: biljetter, sponsorer, utstallare, annat_int
+// Kostnader: lokal, mat, talare, marknadsforing, personal, annat_kost
+
+let ekoBrand = 'all';
+let ekoView = 'resultat';
+
+function setEkoBrand(brand, btn){
+  ekoBrand = brand;
+  document.getElementById('eko-brand-bar').querySelectorAll('.brand-btn').forEach(b=>b.classList.remove('all-active','on'));
+  btn.classList.add(brand==='all'?'all-active':'on');
+  renderEkonomi();
+}
+
+function setEkoView(view, btn){
+  ekoView = view;
+  document.querySelectorAll('[id^="eko-v-"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEkonomi();
+}
+
+function getEkoData(evId){
+  try{ return JSON.parse(localStorage.getItem('ep_eko_'+evId)||'{}'); }catch{ return {}; }
+}
+
+function saveEkoData(evId, data){
+  localStorage.setItem('ep_eko_'+evId, JSON.stringify(data));
+  updateEkoCardSummary(evId, data);
+}
+
+function updateEkoCardSummary(evId, data){
+  const bInt=ekoIntakter(data,'budget'),bKost=ekoKostnader(data,'budget'),bRes=bInt-bKost;
+  const uInt=ekoIntakter(data,'utfall'),uKost=ekoKostnader(data,'utfall'),uRes=uInt-uKost;
+  const resCol=pcol(uRes>0?100:uRes===0?50:0);
+
+  const card = document.getElementById('eko-card-'+evId);
+  if(card){
+    // Update totals
+    card.querySelectorAll('[data-eko-int-total]').forEach(el=>{
+      const sec=el.dataset.ekoIntTotal;
+      el.textContent = '= '+((sec==='budget'?bInt:uInt).toLocaleString('sv'))+' kr';
+    });
+    card.querySelectorAll('[data-eko-kost-total]').forEach(el=>{
+      const sec=el.dataset.ekoKostTotal;
+      el.textContent = '= '+((sec==='budget'?bKost:uKost).toLocaleString('sv'))+' kr';
+    });
+    const resBudget = card.querySelector('[data-eko-res="budget"]');
+    if(resBudget){ resBudget.textContent=(bRes>=0?'+':'')+bRes.toLocaleString('sv')+' kr'; resBudget.style.color=pcol(bRes>0?100:bRes===0?50:0); }
+    const resUtfall = card.querySelector('[data-eko-res="utfall"]');
+    if(resUtfall){ resUtfall.textContent=(uRes>=0?'+':'')+uRes.toLocaleString('sv')+' kr'; resUtfall.style.color=resCol; }
+
+    // Update comparison chart
+    const chartEl = card.querySelector('[data-eko-chart]');
+    if(chartEl){
+      chartEl.innerHTML = buildEkoChart(bInt,bKost,bRes,uInt,uKost,uRes,resCol);
+    }
+  }
+  renderEkoKpi();
+}
+
+function buildEkoChart(bInt,bKost,bRes,uInt,uKost,uRes,resCol){
+  return [
+    ['Intäkter',bInt,uInt,'var(--green)'],
+    ['Kostnader',bKost,uKost,'var(--red)'],
+    ['Resultat',bRes,uRes,resCol]
+  ].map(([label,bv,uv,col])=>{
+    const max=Math.max(Math.abs(bv),Math.abs(uv),1);
+    const bW=Math.round(Math.abs(bv)/max*100);
+    const uW=Math.round(Math.abs(uv)/max*100);
+    const diff=uv-bv;
+    return '<div style="margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:4px;">'
+        +'<span style="color:var(--muted);">'+label+'</span>'
+        +'<span style="color:'+col+';font-weight:700;">'
+          +(uv!==0?(uv>=0?'+':'')+uv.toLocaleString('sv')+' kr':'–')
+          +(bv>0&&uv!==0?'<span style="font-size:0.62rem;color:'+(diff>=0?'var(--green)':'var(--red)')+'"> ('+(diff>=0?'+':'')+diff.toLocaleString('sv')+')</span>':'')
+        +'</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:3px;">'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="font-size:0.6rem;color:var(--muted);width:40px;flex-shrink:0;">Budget</span>'
+          +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+            +'<div style="height:100%;width:'+bW+'%;background:rgba(255,255,255,0.25);border-radius:3px;"></div>'
+          +'</div>'
+          +'<span style="font-size:0.68rem;color:var(--muted);min-width:80px;text-align:right;">'+(bv!==0?bv.toLocaleString('sv')+' kr':'–')+'</span>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="font-size:0.6rem;color:'+col+';width:40px;flex-shrink:0;">Utfall</span>'
+          +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+            +'<div style="height:100%;width:'+uW+'%;background:'+col+';border-radius:3px;"></div>'
+          +'</div>'
+          +'<span style="font-size:0.68rem;font-weight:700;color:'+col+';min-width:80px;text-align:right;">'+(uv!==0?uv.toLocaleString('sv')+' kr':'–')+'</span>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function renderEkoKpi(){
+  const yearFilter = document.getElementById('eko-year-filter')?.value||'all';
+  const evList = events.filter(e=>{
+    if(ekoBrand!=='all'&&getBrand(e)!==ekoBrand) return false;
+    if(yearFilter!=='all'&&e.year!=yearFilter) return false;
+    return true;
+  });
+  const kpiEl = document.getElementById('eko-kpi');
+  if(!kpiEl) return;
+  let totBudgetInt=0,totBudgetKost=0,totUtfallInt=0,totUtfallKost=0,filled=0;
+  evList.forEach(ev=>{
+    const d=getEkoData(ev.id);
+    totBudgetInt+=ekoIntakter(d,'budget'); totBudgetKost+=ekoKostnader(d,'budget');
+    totUtfallInt+=ekoIntakter(d,'utfall'); totUtfallKost+=ekoKostnader(d,'utfall');
+    if(ekoIntakter(d,'utfall')>0||ekoKostnader(d,'utfall')>0) filled++;
+  });
+  const budRes=totBudgetInt-totBudgetKost;
+  const utfRes=totUtfallInt-totUtfallKost;
+  const resCol=pcol(utfRes>0?100:utfRes===0?50:0);
+  const budCol=pcol(budRes>0?100:budRes===0?50:0);
+  kpiEl.innerHTML=`
+    <div class="s-card"><div class="lbl">Intäkter (utfall)</div>
+      <div class="val" style="color:var(--green);font-size:1rem;">${totUtfallInt>0?totUtfallInt.toLocaleString('sv')+' kr':'–'}</div></div>
+    <div class="s-card"><div class="lbl">Kostnader (utfall)</div>
+      <div class="val" style="color:var(--red);font-size:1rem;">${totUtfallKost>0?totUtfallKost.toLocaleString('sv')+' kr':'–'}</div></div>
+    <div class="s-card"><div class="lbl">Resultat (utfall)</div>
+      <div class="val" style="color:${resCol};font-size:1rem;">${totUtfallInt>0||totUtfallKost>0?(utfRes>=0?'+':'')+utfRes.toLocaleString('sv')+' kr':'–'}</div></div>
+    <div class="s-card"><div class="lbl">Budget resultat</div>
+      <div class="val" style="color:${budCol};font-size:1rem;">${totBudgetInt>0||totBudgetKost>0?(budRes>=0?'+':'')+budRes.toLocaleString('sv')+' kr':'–'}</div></div>
+    <div class="s-card"><div class="lbl">Event med data</div>
+      <div class="val" style="color:var(--accent2)">${filled} / ${evList.length}</div></div>`;
+}
+
+function ekoField(evId, section, field, val){
+  const data = getEkoData(evId);
+  if(!data[section]) data[section] = {};
+  if(val===''||val===null) delete data[section][field];
+  else data[section][field] = parseFloat(val)||0;
+  saveEkoData(evId, data);
+}
+
+// Sum helpers
+function ekoIntakter(data, section){
+  const s = data[section]||{};
+  return (s.biljetter||0)+(s.sponsorer||0)+(s.utstallare||0);
+}
+function ekoKostnader(data, section){
+  const s = data[section]||{};
+  return (s.lokal||0)+(s.mat||0)+(s.talare||0)+(s.personal||0);
+}
+function ekoResultat(data, section){
+  return ekoIntakter(data,section) - ekoKostnader(data,section);
+}
+
+function fmtKr(v){ return v===0?'–':v.toLocaleString('sv')+' kr'; }
+function fmtKrNum(v){ return v.toLocaleString('sv')+' kr'; }
+
+function renderEkonomi(){
+  const yearFilter = document.getElementById('eko-year-filter')?.value||'all';
+  const evList = events.filter(e=>{
+    if(ekoBrand!=='all'&&getBrand(e)!==ekoBrand) return false;
+    if(yearFilter!=='all'&&e.year!=yearFilter) return false;
+    return true;
+  }).sort((a,b)=>{
+    if(a.year!==b.year) return a.year-b.year;
+    const da=parseDate(getDate(a)),db=parseDate(getDate(b));
+    if(!da&&!db)return 0;if(!da)return 1;if(!db)return -1;
+    return new Date(da.y,da.m0,da.d)-new Date(db.y,db.m0,db.d);
+  });
+
+  // ── KPI strip ───────────────────────────────────────────
+  const kpiEl = document.getElementById('eko-kpi');
+  if(kpiEl){
+    let totBudgetInt=0,totBudgetKost=0,totUtfallInt=0,totUtfallKost=0,filled=0;
+    evList.forEach(ev=>{
+      const d=getEkoData(ev.id);
+      totBudgetInt  += ekoIntakter(d,'budget');
+      totBudgetKost += ekoKostnader(d,'budget');
+      totUtfallInt  += ekoIntakter(d,'utfall');
+      totUtfallKost += ekoKostnader(d,'utfall');
+      if(ekoIntakter(d,'utfall')>0||ekoKostnader(d,'utfall')>0) filled++;
+    });
+    const budRes = totBudgetInt-totBudgetKost;
+    const utfRes = totUtfallInt-totUtfallKost;
+    const resCol = pcol(utfRes>0?100:utfRes===0?50:0);
+    const budCol = pcol(budRes>0?100:budRes===0?50:0);
+    kpiEl.innerHTML = `
+      <div class="s-card"><div class="lbl">Intäkter (utfall)</div>
+        <div class="val" style="color:var(--green);font-size:1rem;">${totUtfallInt>0?totUtfallInt.toLocaleString('sv')+' kr':'–'}</div></div>
+      <div class="s-card"><div class="lbl">Kostnader (utfall)</div>
+        <div class="val" style="color:var(--red);font-size:1rem;">${totUtfallKost>0?totUtfallKost.toLocaleString('sv')+' kr':'–'}</div></div>
+      <div class="s-card"><div class="lbl">Resultat (utfall)</div>
+        <div class="val" style="color:${resCol};font-size:1rem;">${totUtfallInt>0||totUtfallKost>0?(utfRes>=0?'+':'')+utfRes.toLocaleString('sv')+' kr':'–'}</div></div>
+      <div class="s-card"><div class="lbl">Budget resultat</div>
+        <div class="val" style="color:${budCol};font-size:1rem;">${totBudgetInt>0||totBudgetKost>0?(budRes>=0?'+':'')+budRes.toLocaleString('sv')+' kr':'–'}</div></div>
+      <div class="s-card"><div class="lbl">Event med data</div>
+        <div class="val" style="color:var(--accent2)">${filled} / ${evList.length}</div></div>`;
+  }
+
+  // ── Year chart ──────────────────────────────────────────
+  const chartEl = document.getElementById('eko-year-chart');
+  if(chartEl){
+    const years = [...new Set(evList.map(e=>e.year))].sort();
+    const yearData = years.map(y=>{
+      const evs = evList.filter(e=>e.year===y);
+      let bInt=0,bKost=0,uInt=0,uKost=0;
+      evs.forEach(ev=>{
+        const d=getEkoData(ev.id);
+        bInt+=ekoIntakter(d,'budget'); bKost+=ekoKostnader(d,'budget');
+        uInt+=ekoIntakter(d,'utfall'); uKost+=ekoKostnader(d,'utfall');
+      });
+      return {y,bInt,bKost,bRes:bInt-bKost,uInt,uKost,uRes:uInt-uKost,
+        hasData:uInt>0||uKost>0};
+    });
+
+    if(!yearData.some(d=>d.bInt>0||d.uInt>0)){
+      chartEl.innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Fyll i ekonomidata på eventen nedan för att se grafer här.</div>';
+    } else {
+      const getVal = d => ekoView==='resultat'?[d.bRes,d.uRes]:
+        ekoView==='intakter'?[d.bInt,d.uInt]:[d.bKost,d.uKost];
+      const maxVal = Math.max(1,...yearData.map(d=>Math.max(...getVal(d).map(Math.abs))));
+
+      chartEl.innerHTML = `
+        <div style="display:flex;gap:20px;align-items:flex-end;padding:0 8px;">
+          ${yearData.map(d=>{
+            const [bVal,uVal] = getVal(d);
+            const isNeg = uVal<0;
+            const col = ekoView==='resultat' ? pcol(uVal>0?100:uVal===0?50:0)
+              : ekoView==='intakter' ? 'var(--green)' : 'var(--red)';
+            const bH = Math.round(Math.abs(bVal)/maxVal*120);
+            const uH = d.hasData ? Math.round(Math.abs(uVal)/maxVal*120) : 0;
+            return `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:80px;">
+              <div style="font-size:0.7rem;font-weight:700;color:${d.hasData?col:'var(--muted)'}">
+                ${d.hasData?(uVal>=0?'+':'')+uVal.toLocaleString('sv')+' kr':'–'}
+              </div>
+              <div style="height:130px;display:flex;align-items:flex-end;justify-content:center;gap:5px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                  <div style="width:20px;height:${bH}px;background:rgba(255,255,255,0.12);border-radius:3px 3px 0 0;" title="Budget: ${bVal.toLocaleString('sv')} kr"></div>
+                </div>
+                ${d.hasData?`<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                  <div style="width:28px;height:${uH}px;background:${col};border-radius:3px 3px 0 0;${isNeg?'opacity:0.7;':''}" title="Utfall: ${uVal.toLocaleString('sv')} kr"></div>
+                </div>`:''}
+              </div>
+              <div style="font-weight:700;font-size:0.82rem;">${d.y}</div>
+              <div style="font-size:0.6rem;color:var(--muted);">budget ${bVal.toLocaleString('sv')} kr</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:0.65rem;color:var(--muted);">
+          <span style="opacity:0.5;">█ Budget</span><span>█ Utfall</span>
+        </div>`;
+    }
+  }
+
+  // ── Event cards ─────────────────────────────────────────
+  const listEl = document.getElementById('eko-event-list');
+  if(!listEl) return;
+
+  if(!evList.length){
+    listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);">Inga event matchar filtret</div>';
+    return;
+  }
+
+  listEl.innerHTML = evList.map(ev=>{
+    const d = getEkoData(ev.id);
+    const bu = d.budget||{}, ut = d.utfall||{};
+    const bc = BRAND_COLORS[getBrand(ev)]||'var(--muted)';
+    const bInt=ekoIntakter(d,'budget'),bKost=ekoKostnader(d,'budget'),bRes=bInt-bKost;
+    const uInt=ekoIntakter(d,'utfall'),uKost=ekoKostnader(d,'utfall'),uRes=uInt-uKost;
+    const hasUtfall = uInt>0||uKost>0;
+    const resCol = pcol(uRes>0?100:uRes===0?50:0);
+
+    const inp = (section,field,val,placeholder) =>
+      `<input type="number" min="0" placeholder="${placeholder}"
+        value="${val||''}"
+        onblur="ekoField('${ev.id}','${section}','${field}',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()"
+        style="width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);
+        padding:5px 8px;border-radius:7px;font-size:0.78rem;outline:none;
+        ${val?'border-color:var(--accent);':''}"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur2="this.style.borderColor=this.value?'var(--accent)':'var(--border)'">`;
+
+    return `<div class="card" style="margin-bottom:12px;">
+      <!-- Header -->
+      <div style="padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);
+        display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;"
+        onclick="toggleEkoCard('eko-card-${ev.id}')">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:4px;height:32px;border-radius:2px;background:${bc};flex-shrink:0;"></div>
+          <div>
+            <div style="font-size:0.88rem;font-weight:700;">${getName(ev)}</div>
+            <div style="font-size:0.7rem;color:var(--muted);">${yb(ev.year)} · ${fmtShort(getDate(ev))} · ${brandPill(getBrand(ev))}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${hasUtfall?`
+          <div style="text-align:right;">
+            <div style="font-size:0.68rem;color:var(--muted);">Resultat</div>
+            <div style="font-size:0.88rem;font-weight:700;color:${resCol}">${uRes>=0?'+':''}${uRes.toLocaleString('sv')} kr</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.68rem;color:var(--green);">Intäkter</div>
+            <div style="font-size:0.8rem;font-weight:600;">${uInt.toLocaleString('sv')} kr</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.68rem;color:var(--red);">Kostnader</div>
+            <div style="font-size:0.8rem;font-weight:600;">${uKost.toLocaleString('sv')} kr</div>
+          </div>`
+          :`<span style="font-size:0.72rem;color:var(--muted);font-style:italic;">Ingen data ännu</span>`}
+          <span style="color:var(--muted);font-size:0.7rem;">▾</span>
+        </div>
+      </div>
+
+      <!-- Expandable body -->
+      <div id="eko-card-${ev.id}" style="display:none;">
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+          <!-- BUDGET -->
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+              letter-spacing:0.05em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+              📋 Budget (mål)
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:0.68rem;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:2px;">Intäkter</div>
+              ${['biljetter','sponsorer','utstallare'].map((f,i)=>`
+              <div class="form-group" style="gap:3px;">
+                <label class="form-label" style="font-size:0.65rem;">${['Biljetter/deltagare','Sponsorer','Utställare'][i]}</label>
+                ${inp('budget',f,bu[f],'0 kr')}
+              </div>`).join('')}
+              <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.78rem;color:var(--green);font-weight:700;" data-eko-int-total="budget">
+                = ${fmtKrNum(bInt)}
+              </div>
+              <div style="font-size:0.68rem;font-weight:700;color:var(--red);text-transform:uppercase;margin:4px 0 2px;">Kostnader</div>
+              ${['lokal','mat','talare','personal'].map((f,i)=>`
+              <div class="form-group" style="gap:3px;">
+                <label class="form-label" style="font-size:0.65rem;">${['Lokal','Mat & dryck','Talare/Artister','Personal'][i]}</label>
+                ${inp('budget',f,bu[f],'0 kr')}
+              </div>`).join('')}
+              <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.78rem;color:var(--red);font-weight:700;" data-eko-kost-total="budget">
+                = ${fmtKrNum(bKost)}
+              </div>
+              <div style="padding:8px 10px;background:var(--card2);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.78rem;font-weight:700;">Budget resultat</span>
+                <span data-eko-res="budget" style="font-size:0.9rem;font-weight:800;color:${pcol(bRes>0?100:bRes===0?50:0)}">${bRes>=0?'+':''}${fmtKrNum(bRes)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- UTFALL -->
+          <div>
+            <div style="font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+              letter-spacing:0.05em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+              ✅ Utfall (faktiskt)
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:0.68rem;font-weight:700;color:var(--green);text-transform:uppercase;margin-bottom:2px;">Intäkter</div>
+              ${['biljetter','sponsorer','utstallare'].map((f,i)=>`
+              <div class="form-group" style="gap:3px;">
+                <label class="form-label" style="font-size:0.65rem;">${['Biljetter/deltagare','Sponsorer','Utställare'][i]}</label>
+                ${inp('utfall',f,ut[f],'0 kr')}
+              </div>`).join('')}
+              <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.78rem;color:var(--green);font-weight:700;" data-eko-int-total="utfall">
+                = ${fmtKrNum(uInt)}
+              </div>
+              <div style="font-size:0.68rem;font-weight:700;color:var(--red);text-transform:uppercase;margin:4px 0 2px;">Kostnader</div>
+              ${['lokal','mat','talare','personal'].map((f,i)=>`
+              <div class="form-group" style="gap:3px;">
+                <label class="form-label" style="font-size:0.65rem;">${['Lokal','Mat & dryck','Talare/Artister','Personal'][i]}</label>
+                ${inp('utfall',f,ut[f],'0 kr')}
+              </div>`).join('')}
+              <div style="padding:6px 0;border-top:1px solid var(--border);font-size:0.78rem;color:var(--red);font-weight:700;" data-eko-kost-total="utfall">
+                = ${fmtKrNum(uKost)}
+              </div>
+              <div style="padding:8px 10px;background:var(--card2);border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.78rem;font-weight:700;">Faktiskt resultat</span>
+                <span data-eko-res="utfall" style="font-size:0.9rem;font-weight:800;color:${resCol}">${uRes>=0?'+':''}${fmtKrNum(uRes)}</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Mini comparison chart -->
+        <div style="padding:0 16px 16px;">
+          <div style="background:var(--card2);border-radius:10px;padding:12px 16px;">
+            <div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+              letter-spacing:0.05em;margin-bottom:12px;">Budget vs utfall</div>
+            <div data-eko-chart>${buildEkoChart(bInt,bKost,bRes,uInt,uKost,uRes,resCol)}</div>
+          </div>
+        </div>
+
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleEkoCard(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
 
 // ── INIT ──────────────────────────────────────────────────────
 // Dubblerings-kontroll — körs vid sidladdning
@@ -4774,7 +5207,7 @@ setInterval(()=>{
   onclick="if(event.target===this)document.getElementById('detail-summary-modal').style.display='none'">
   <div class="modal" style="max-width:680px;max-height:85vh;display:flex;flex-direction:column;">
     <div class="modal-header">
-      <h3 id="summary-modal-title">📋 Sammanfattning</h3>
+      <h3 id="summary-modal-title">📋 Eventinfo</h3>
       <button class="modal-close" onclick="document.getElementById('detail-summary-modal').style.display='none'">✕</button>
     </div>
     <div class="modal-body" id="summary-modal-body" style="overflow-y:auto;flex:1;"></div>
@@ -4805,6 +5238,50 @@ setInterval(()=>{
       <button class="btn btn-primary" onclick="doExportICS()">📥 Exportera</button>
     </div>
   </div>
+</div>
+
+
+<!-- ═══ EKONOMI ═══ -->
+<div id="tab-ekonomi" style="display:none;">
+<div class="content" style="padding:16px 26px;">
+
+  <!-- Filters -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <div class="brand-bar" id="eko-brand-bar" style="margin-bottom:0;">
+      <button class="brand-btn all-active" data-brand="all" onclick="setEkoBrand('all',this)">Alla varumärken</button>
+      <button class="brand-btn" data-brand="Vd-tidningen" onclick="setEkoBrand('Vd-tidningen',this)">Vd-tidningen</button>
+      <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
+      <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
+      <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
+    </div>
+    <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomi()">
+      <option value="all">Alla år</option>
+      <option value="2026" selected>2026</option>
+      <option value="2027">2027</option>
+      <option value="2028">2028</option>
+    </select>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="eko-kpi" class="s-strip" style="margin-bottom:16px;"></div>
+
+  <!-- Year comparison chart -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <h2>📈 Resultat per år</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="setEkoView('resultat',this)" id="eko-v-resultat" class="fbtn active" style="font-size:0.7rem;padding:3px 10px;">Resultat</button>
+        <button onclick="setEkoView('intakter',this)" id="eko-v-intakter" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Intäkter</button>
+        <button onclick="setEkoView('kostnader',this)" id="eko-v-kostnader" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Kostnader</button>
+      </div>
+    </div>
+    <div style="padding:16px;" id="eko-year-chart"></div>
+  </div>
+
+  <!-- Event list -->
+  <div id="eko-event-list"></div>
+
+</div>
 </div>
 
 </body>
