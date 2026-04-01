@@ -309,6 +309,10 @@
   <div>
     <h1>📅 Eventplanering 2026–2028</h1>
     <div id="save-note">Laddar...</div>
+    <button onclick="resetAllData()" 
+      style="font-size:0.68rem;padding:3px 10px;border-radius:6px;border:1px solid var(--red);background:transparent;color:var(--red);cursor:pointer;margin-left:8px;">
+      🗑 Rensa allt
+    </button>
     <button onclick="logout()" style="font-size:0.68rem;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:8px;">Logga ut</button>
     <button onclick="toggleTheme()" id="theme-btn" title="Växla ljust/mörkt läge"
       style="font-size:0.78rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;margin-left:4px;">🌙</button>
@@ -5466,6 +5470,55 @@ function toggleEkoCard(id){
   el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 
+
+
+// ── RENSA ALL DATA ─────────────────────────────────────────────
+function resetAllData(){
+  if(!confirm('⚠️ Detta raderar ALL data — event, utfall, ekonomi, anteckningar, tasks och eventinfo.\n\nDetta kan inte ångras. Fortsätta?')) return;
+  if(!confirm('Är du helt säker? All inmatad data försvinner permanent.')) return;
+
+  // Clear all localStorage keys
+  const keysToRemove = [];
+  for(let i=0; i<localStorage.length; i++){
+    const key = localStorage.key(i);
+    if(key && (
+      key.startsWith('ep_') ||
+      key.startsWith('cal_') ||
+      key.startsWith('ep_eko_') ||
+      key.startsWith('ep_info_')
+    )) keysToRemove.push(key);
+  }
+  keysToRemove.forEach(k => localStorage.removeItem(k));
+
+  // Reset in-memory state
+  actuals = {}; edits = {}; notes = {}; tasks = {};
+  doneActs = {}; studioBookings = [];
+  initEvents();
+  idCounter = events.length;
+
+  // Clear Google Sheets too if connected
+  if(SCRIPT_URL){
+    const n = document.getElementById('save-note');
+    if(n) n.textContent = '☁️ Rensar molndata...';
+    fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action:'write', data:{
+        actuals:{}, edits:{}, notes:{}, tasks:{},
+        doneActs:{}, studioBookings:[], events:[]
+      }})
+    })
+    .then(()=>{ if(n) n.textContent = '✅ Allt rensat'; setTimeout(()=>{ if(n) n.textContent='☁️ Google Sheets'; },3000); })
+    .catch(()=>{ if(n) n.textContent = '⚠ Molnet ej rensat'; });
+  }
+
+  // Re-render everything
+  autoUpdateYearButtons();
+  renderDashboard();
+  renderTracker();
+  renderCalendar();
+
+  alert('✅ All data rensad! Importera nu den nya Excel-filen via Kalender → Importera Events.');
+}
 
 // ── INIT ──────────────────────────────────────────────────────
 // Dubblerings-kontroll — körs vid sidladdning
