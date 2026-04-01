@@ -363,14 +363,72 @@
 <div class="tabs">
   <div class="tab active" onclick="showTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="showTab('calendar')">📆 Kalender</div>
-  <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning</div>
+  <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning & Ekonomi</div>
   <div class="tab" onclick="showTab('details')">📋 Eventinfo</div>
-  <div class="tab" onclick="showTab('ekonomi')">💰 Ekonomi</div>
+
 </div>
 
 <!-- ═══ TRACKER ═══ -->
+
+<!-- ═══ EKONOMI SUMMARY IN TRACKER ═══ -->
+<div style="padding:0 14px 0;" id="eko-summary-section">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px;">
+    <div onclick="toggleEkoSummaryPanel()" style="cursor:pointer;padding:10px 16px;background:var(--card2);
+      border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:0.85rem;font-weight:700;">💰 Ekonomiöversikt</span>
+        <div id="eko-summary-kpi-inline" style="display:flex;gap:12px;font-size:0.72rem;"></div>
+      </div>
+      <span id="eko-summary-arrow" style="font-size:0.65rem;transition:transform 0.2s;">▾</span>
+    </div>
+    <div id="eko-summary-panel" style="display:none;">
+      <!-- Filters -->
+      <div style="padding:10px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border);">
+        <div class="brand-bar" id="eko-brand-bar" style="margin-bottom:0;">
+          <button class="brand-btn all-active" data-brand="all" onclick="setEkoBrand('all',this)">Alla varumärken</button>
+          <button class="brand-btn" data-brand="Vd-tidningen" onclick="setEkoBrand('Vd-tidningen',this)">Vd-tidningen</button>
+          <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
+          <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
+          <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
+        </div>
+        <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomiInline()">
+          <option value="all">Alla år</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+      </div>
+      <!-- KPI strip -->
+      <div id="eko-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:12px 16px;"></div>
+      <!-- Year chart -->
+      <div style="padding:0 16px 4px;display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="setEkoView('resultat',this)" id="eko-v-resultat" class="fbtn active" style="font-size:0.7rem;padding:3px 10px;">Resultat</button>
+        <button onclick="setEkoView('intakter',this)" id="eko-v-intakter" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Intäkter</button>
+        <button onclick="setEkoView('kostnader',this)" id="eko-v-kostnader" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Kostnader</button>
+      </div>
+      <div style="padding:12px 16px;" id="eko-year-chart"></div>
+      <!-- Historik -->
+      <div style="padding:0 16px 16px;">
+        <div onclick="toggleEkoHistorik()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+          padding:8px 0;border-top:1px solid var(--border);">
+          <span style="font-size:0.78rem;font-weight:700;">📊 Historik per event — år för år</span>
+          <span id="eko-historik-arrow" style="font-size:0.65rem;transition:transform 0.2s;">▾</span>
+        </div>
+        <div id="eko-historik-panel" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div style="padding:14px 14px 0;" id="tracker-summary"></div>
 <div class="content" id="tab-tracker" style="display:none;">
+  <div id="eko-event-panel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">
+    <div style="padding:10px 17px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:0.82rem;font-weight:700;">💰 Ekonomi</span>
+      <button onclick="document.getElementById('eko-event-panel').style.display='none'" style="font-size:0.72rem;color:var(--muted);background:transparent;border:none;cursor:pointer;">✕</button>
+    </div>
+    <div id="eko-event-panel-body" style="padding:14px 17px;"></div>
+  </div>
   <div id="trend-panel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">
     <div style="padding:10px 17px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:0.82rem;font-weight:700;" id="trend-title">📈 Trend</span>
@@ -1230,18 +1288,18 @@ function yearOptions(selected) {
 
 // ── TABS ──────────────────────────────────────────────────────
 function showTab(t){
-  ['tracker','dashboard','calendar','details','ekonomi'].forEach(id=>{
+  ['tracker','dashboard','calendar','details'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el) el.style.display=id===t?'':'none';
   });
   document.querySelectorAll('.tab').forEach((el,i)=>
-    el.classList.toggle('active',['dashboard','calendar','tracker','details','ekonomi'][i]===t)
+    el.classList.toggle('active',['dashboard','calendar','tracker','details'][i]===t)
   );
   if(t==='dashboard')renderDashboard();
   if(t==='calendar') renderCalendar();
   if(t==='tracker')  renderTracker();
   if(t==='details')  renderDetails();
-  if(t==='ekonomi')  renderEkonomi();
+
 }
 
 // ── BRAND + YEAR FILTERS ──────────────────────────────────────
@@ -1736,9 +1794,12 @@ function selectEvent(id){
   if(id){
     document.getElementById('detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
     showTrend(id);
+    renderEkoEventPanel(id);
   } else {
     const tp=document.getElementById('trend-panel');
     if(tp) tp.style.display='none';
+    const ep=document.getElementById('eko-event-panel');
+    if(ep) ep.style.display='none';
   }
 }
 
@@ -4651,6 +4712,8 @@ function getEkoData(evId){
 function saveEkoData(evId, data){
   localStorage.setItem('ep_eko_'+evId, JSON.stringify(data));
   updateEkoCardSummary(evId, data);
+  // Refresh inline event panel if it's showing this event
+  if(selectedId===evId) renderEkoEventPanel(evId);
 }
 
 function updateEkoCardSummary(evId, data){
@@ -5101,6 +5164,140 @@ function renderEkonomi(){
 }
 
 
+
+// ── EKO EVENT PANEL (in tracker) ──────────────────────────────
+function renderEkoEventPanel(id){
+  const ev = getEv(id); if(!ev) return;
+  const panel = document.getElementById('eko-event-panel');
+  const body  = document.getElementById('eko-event-panel-body');
+  if(!panel||!body) return;
+
+  panel.style.display = 'block';
+  const d  = getEkoData(id);
+  const bu = d.budget||{}, ut = d.utfall||{};
+  const bInt=ekoIntakter(d,'budget'),bKost=ekoKostnader(d,'budget'),bRes=bInt-bKost;
+  const uInt=ekoIntakter(d,'utfall'),uKost=ekoKostnader(d,'utfall'),uRes=uInt-uKost;
+  const resCol=pcol(uRes>0?100:uRes===0?50:0);
+
+  const inp=(section,field,val)=>
+    '<input type="number" min="0" placeholder="0 kr" value="'+(val||'')+'"'
+    +' onblur="ekoField(\''+id+'\',\''+section+'\',\''+field+'\',this.value)"'
+    +' onkeydown="if(event.key===\'Enter\')this.blur()"'
+    +' style="width:100%;background:var(--card2);border:1px solid '+(val?'var(--accent)':'var(--border)')+';color:var(--text);'
+    +'padding:5px 8px;border-radius:7px;font-size:0.78rem;outline:none;">';
+
+  // Prev year comparison
+  const prevEv = events.find(e=>getName(e)===getName(ev)&&e.year===ev.year-1);
+  const prevBadge = prevEv ? (()=>{
+    const pd=getEkoData(prevEv.id);
+    const prevURes=ekoIntakter(pd,'utfall')-ekoKostnader(pd,'utfall');
+    if(!prevURes&&prevURes!==0) return '';
+    const diff=uRes-prevURes;
+    const col=diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
+    return '<span style="font-size:0.7rem;padding:3px 8px;border-radius:6px;background:rgba(108,99,255,0.08);border:1px solid rgba(108,99,255,0.2);margin-left:8px;cursor:pointer;" onclick="toggleEkoYearComp(\'eko-ev-ycomp-'+id+'\')">'
+      +'vs '+(ev.year-1)+': <strong style="color:'+col+'">'+(diff>=0?'+':'')+diff.toLocaleString('sv')+' kr</strong> ▾</span>';
+  })() : '';
+
+  body.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">'
+
+    // Budget column
+    +'<div><div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);">📋 Budget</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--green);text-transform:uppercase;">Intäkter</div>'
+    +['biljetter','sponsorer','utstallare'].map((f,i)=>'<div class="form-group" style="gap:2px;"><label class="form-label" style="font-size:0.62rem;">'+['Biljetter','Sponsorer','Utställare'][i]+'</label>'+inp('budget',f,bu[f])+'</div>').join('')
+    +'<div style="font-size:0.7rem;color:var(--green);font-weight:700;padding:3px 0;" data-eko-int-total="budget">= '+bInt.toLocaleString('sv')+' kr</div>'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--red);text-transform:uppercase;margin-top:4px;">Kostnader</div>'
+    +['lokal','mat','talare','personal'].map((f,i)=>'<div class="form-group" style="gap:2px;"><label class="form-label" style="font-size:0.62rem;">'+['Lokal','Mat & dryck','Talare','Personal'][i]+'</label>'+inp('budget',f,bu[f])+'</div>').join('')
+    +'<div style="font-size:0.7rem;color:var(--red);font-weight:700;padding:3px 0;" data-eko-kost-total="budget">= '+bKost.toLocaleString('sv')+' kr</div>'
+    +'<div style="padding:6px 10px;background:var(--card2);border-radius:8px;display:flex;justify-content:space-between;margin-top:4px;">'
+      +'<span style="font-size:0.75rem;font-weight:700;">Resultat</span>'
+      +'<span data-eko-res="budget" style="font-size:0.82rem;font-weight:800;color:'+pcol(bRes>0?100:bRes===0?50:0)+'">'+(bRes>=0?'+':'')+bRes.toLocaleString('sv')+' kr</span>'
+    +'</div>'
+    +'</div></div>'
+
+    // Utfall column
+    +'<div><div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border);">✅ Utfall'+prevBadge+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;">'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--green);text-transform:uppercase;">Intäkter</div>'
+    +['biljetter','sponsorer','utstallare'].map((f,i)=>'<div class="form-group" style="gap:2px;"><label class="form-label" style="font-size:0.62rem;">'+['Biljetter','Sponsorer','Utställare'][i]+'</label>'+inp('utfall',f,ut[f])+'</div>').join('')
+    +'<div style="font-size:0.7rem;color:var(--green);font-weight:700;padding:3px 0;" data-eko-int-total="utfall">= '+uInt.toLocaleString('sv')+' kr</div>'
+    +'<div style="font-size:0.65rem;font-weight:700;color:var(--red);text-transform:uppercase;margin-top:4px;">Kostnader</div>'
+    +['lokal','mat','talare','personal'].map((f,i)=>'<div class="form-group" style="gap:2px;"><label class="form-label" style="font-size:0.62rem;">'+['Lokal','Mat & dryck','Talare','Personal'][i]+'</label>'+inp('utfall',f,ut[f])+'</div>').join('')
+    +'<div style="font-size:0.7rem;color:var(--red);font-weight:700;padding:3px 0;" data-eko-kost-total="utfall">= '+uKost.toLocaleString('sv')+' kr</div>'
+    +'<div style="padding:6px 10px;background:var(--card2);border-radius:8px;display:flex;justify-content:space-between;margin-top:4px;">'
+      +'<span style="font-size:0.75rem;font-weight:700;">Resultat</span>'
+      +'<span data-eko-res="utfall" style="font-size:0.82rem;font-weight:800;color:'+resCol+'">'+(uRes>=0?'+':'')+uRes.toLocaleString('sv')+' kr</span>'
+    +'</div>'
+    +'</div></div>'
+
+    +'</div>'
+
+    // Budget vs utfall chart
+    +'<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">'
+      +'<div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Budget vs utfall</div>'
+      +'<div data-eko-chart>'+buildEkoChart(bInt,bKost,bRes,uInt,uKost,uRes,resCol)+'</div>'
+    +'</div>'
+
+    // Prev year comparison panel
+    +(prevEv ? '<div id="eko-ev-ycomp-'+id+'" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">'
+      +'<div style="font-size:0.68rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">📊 Jämförelse '+(ev.year-1)+' vs '+ev.year+'</div>'
+      +buildPrevYearRows(id, prevEv.id)
+    +'</div>' : '');
+}
+
+function buildPrevYearRows(currId, prevId){
+  const d=getEkoData(currId), pd=getEkoData(prevId);
+  return ['biljetter','sponsorer','utstallare','lokal','mat','talare','personal'].map((field,fi)=>{
+    const labels=['Biljetter','Sponsorer','Utställare','Lokal','Mat & dryck','Talare','Personal'];
+    const cols=['var(--accent)','var(--accent2)','#d4a017','var(--red)','#e07b39','#9b59b6','var(--muted)'];
+    const prevU=(pd.utfall||{})[field]||0, currU=(d.utfall||{})[field]||0;
+    if(!prevU&&!currU) return '';
+    const maxV=Math.max(prevU,currU,1);
+    const diff=currU-prevU;
+    const diffCol=diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
+    const ev=getEv(currId), prevEv=getEv(prevId);
+    return '<div style="margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:4px;">'
+        +'<span style="color:var(--muted);font-weight:600;">'+labels[fi]+'</span>'
+        +'<span style="color:'+diffCol+';font-weight:700;">'+(diff!==0?(diff>0?'+':'')+diff.toLocaleString('sv')+' kr':'–')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:3px;">'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="font-size:0.6rem;color:var(--muted);width:40px;">'+prevEv.year+'</span>'
+          +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+            +'<div style="height:100%;width:'+Math.round(prevU/maxV*100)+'%;background:rgba(255,255,255,0.25);border-radius:3px;"></div>'
+          +'</div>'
+          +'<span style="font-size:0.68rem;color:var(--muted);min-width:70px;text-align:right;">'+(prevU?prevU.toLocaleString('sv')+' kr':'–')+'</span>'
+        +'</div>'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<span style="font-size:0.6rem;color:'+cols[fi]+';width:40px;font-weight:700;">'+ev.year+'</span>'
+          +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+            +'<div style="height:100%;width:'+Math.round(currU/maxV*100)+'%;background:'+cols[fi]+';border-radius:3px;"></div>'
+          +'</div>'
+          +'<span style="font-size:0.68rem;font-weight:700;color:'+cols[fi]+';min-width:70px;text-align:right;">'+(currU?currU.toLocaleString('sv')+' kr':'–')+'</span>'
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  }).filter(Boolean).join('');
+}
+
+// Toggle ekonomi summary panel
+let ekoSummaryOpen = false;
+function toggleEkoSummaryPanel(){
+  ekoSummaryOpen = !ekoSummaryOpen;
+  const panel = document.getElementById('eko-summary-panel');
+  const arrow = document.getElementById('eko-summary-arrow');
+  if(panel) panel.style.display = ekoSummaryOpen ? 'block' : 'none';
+  if(arrow) arrow.style.transform = ekoSummaryOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  if(ekoSummaryOpen) renderEkonomi();
+}
+
+function renderEkonomiInline(){
+  renderEkonomi();
+}
+
+// Update saveEkoData to also refresh the event panel if open
 // ── EKONOMI HISTORIK ───────────────────────────────────────────
 let ekoHistorikOpen = false;
 
@@ -5438,56 +5635,7 @@ setInterval(()=>{
 
 
 <!-- ═══ EKONOMI ═══ -->
-<div id="tab-ekonomi" style="display:none;">
-<div class="content" style="padding:16px 26px;">
 
-  <!-- Filters -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-    <div class="brand-bar" id="eko-brand-bar" style="margin-bottom:0;">
-      <button class="brand-btn all-active" data-brand="all" onclick="setEkoBrand('all',this)">Alla varumärken</button>
-      <button class="brand-btn" data-brand="Vd-tidningen" onclick="setEkoBrand('Vd-tidningen',this)">Vd-tidningen</button>
-      <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
-      <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
-      <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
-    </div>
-    <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomi()">
-      <option value="all">Alla år</option>
-      <option value="2026" selected>2026</option>
-      <option value="2027">2027</option>
-      <option value="2028">2028</option>
-    </select>
-  </div>
-
-  <!-- KPI strip -->
-  <div id="eko-kpi" class="s-strip" style="margin-bottom:16px;"></div>
-
-  <!-- Year comparison chart -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header">
-      <h2>📈 Resultat per år</h2>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="setEkoView('resultat',this)" id="eko-v-resultat" class="fbtn active" style="font-size:0.7rem;padding:3px 10px;">Resultat</button>
-        <button onclick="setEkoView('intakter',this)" id="eko-v-intakter" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Intäkter</button>
-        <button onclick="setEkoView('kostnader',this)" id="eko-v-kostnader" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Kostnader</button>
-      </div>
-    </div>
-    <div style="padding:16px;" id="eko-year-chart"></div>
-  </div>
-
-  <!-- Historik per event -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header" onclick="toggleEkoHistorik()" style="cursor:pointer;">
-      <h2>📊 Historik per event — år för år</h2>
-      <span id="eko-historik-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block;">▾</span>
-    </div>
-    <div id="eko-historik-panel" style="display:none;padding:16px;" ></div>
-  </div>
-
-  <!-- Event list -->
-  <div id="eko-event-list"></div>
-
-</div>
-</div>
 
 </body>
 </html>
