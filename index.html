@@ -423,9 +423,12 @@
 <div style="padding:14px 14px 0;" id="tracker-summary"></div>
 <div class="content" id="tab-tracker" style="display:none;">
   <div id="eko-event-panel" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">
-    <div style="padding:10px 17px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;justify-content:space-between;align-items:center;">
+    <div style="padding:10px 17px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleTrackerSection('eko-event-panel-body')">
       <span style="font-size:0.82rem;font-weight:700;">💰 Ekonomi</span>
-      <button onclick="document.getElementById('eko-event-panel').style.display='none'" style="font-size:0.72rem;color:var(--muted);background:transparent;border:none;cursor:pointer;">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="eko-panel-arrow" style="font-size:0.65rem;color:var(--muted);transition:transform 0.2s;">▾</span>
+        <button onclick="event.stopPropagation();document.getElementById('eko-event-panel').style.display='none'" style="font-size:0.72rem;color:var(--muted);background:transparent;border:none;cursor:pointer;">✕</button>
+      </div>
     </div>
     <div id="eko-event-panel-body" style="padding:14px 17px;"></div>
   </div>
@@ -470,10 +473,36 @@
           style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">
           📊 Jämför år
         </button>
-        <button onclick="exportXLSX()"
-          style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--green);background:rgba(81,207,102,0.1);color:var(--green);cursor:pointer;font-weight:600;">
-          📥 Exportera Excel
-        </button>
+        <div style="position:relative;display:inline-block;">
+          <button onclick="toggleExportMenu()" id="export-menu-btn"
+            style="font-size:0.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--green);background:rgba(81,207,102,0.1);color:var(--green);cursor:pointer;font-weight:600;">
+            📥 Exportera Excel ▾
+          </button>
+          <div id="export-menu" style="display:none;position:absolute;right:0;top:110%;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:200;min-width:220px;overflow:hidden;">
+            <div style="padding:6px 0;">
+              <div style="padding:4px 14px;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Alla event</div>
+              <button onclick="exportXLSX();closeExportMenu()" style="width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                📊 Deltagarutfall — alla event
+              </button>
+              <button onclick="exportAllEkoXLSX();closeExportMenu()" style="width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                💰 Ekonomi — alla event
+              </button>
+              <button onclick="exportBothXLSX();closeExportMenu()" style="width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                📦 Både deltagare &amp; ekonomi
+              </button>
+              <div style="border-top:1px solid var(--border);margin:4px 0;padding:4px 14px 0;font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:700;" id="export-menu-selected-label" style="display:none;">Valt event</div>
+              <button id="export-single-deltagare" onclick="exportSingleXLSX('deltagare');closeExportMenu()" style="display:none;width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                📊 Deltagarutfall — valt event
+              </button>
+              <button id="export-single-eko" onclick="exportSingleXLSX('eko');closeExportMenu()" style="display:none;width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                💰 Ekonomi — valt event
+              </button>
+              <button id="export-single-both" onclick="exportSingleXLSX('both');closeExportMenu()" style="display:none;width:100%;text-align:left;padding:8px 14px;font-size:0.78rem;background:transparent;border:none;color:var(--text);cursor:pointer;" onmouseover="this.style.background='rgba(108,99,255,0.08)'" onmouseout="this.style.background='transparent'">
+                📦 Båda — valt event
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div id="year-compare-panel" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--card2);"></div>
@@ -1677,17 +1706,19 @@ function renderPanel(id){
   };
 
   document.getElementById('dp-inner').innerHTML=`
-    <div class="dp-header">
+    <div class="dp-header" onclick="toggleTrackerSection('dp-body-inner-${id}')" style="cursor:pointer;">
       <div>
         <div class="dp-title">${getName(ev)} ${yb(ev.year)} ${brandPill(getBrand(ev))}${typePill(ev)}${studioActivityTag(ev)}</div>
         <div class="dp-meta">${vb(getVenue(ev))} <span>${getDate(ev)}</span></div>
       </div>
       <div class="dp-actions">
-        <button class="dp-icon-btn" onclick="openEditModal('${id}')">✏️ Redigera</button>
-        <button class="dp-icon-btn danger" onclick="openDeleteConfirm('${id}')">🗑 Ta bort</button>
-        <button class="dp-close" onclick="selectEvent(null)">✕</button>
+        <button class="dp-icon-btn" onclick="event.stopPropagation();openEditModal('${id}')">✏️ Redigera</button>
+        <button class="dp-icon-btn danger" onclick="event.stopPropagation();openDeleteConfirm('${id}')">🗑 Ta bort</button>
+        <span id="dp-arrow-${id}" style="font-size:0.65rem;color:var(--muted);transition:transform 0.2s;display:inline-block;">▾</span>
+        <button class="dp-close" onclick="event.stopPropagation();selectEvent(null)">✕</button>
       </div>
     </div>
+    <div id="dp-body-inner-${id}">
     <div class="dp-body">
 
       <!-- 1. Summering överst -->
@@ -5406,6 +5437,23 @@ function renderEkoHistorik(){
   }).join('');
 }
 
+function toggleTrackerSection(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const isHidden = el.style.display === 'none';
+  el.style.display = isHidden ? '' : 'none';
+  // Rotate arrow if exists
+  if(id.startsWith('dp-body-inner-')){
+    const evId = id.replace('dp-body-inner-','');
+    const arrow = document.getElementById('dp-arrow-'+evId);
+    if(arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+  }
+  if(id === 'eko-event-panel-body'){
+    const arrow = document.getElementById('eko-panel-arrow');
+    if(arrow) arrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(-90deg)';
+  }
+}
+
 function toggleEkoYearComp(id){
   const el = document.getElementById(id);
   if(!el) return;
@@ -5477,6 +5525,137 @@ setInterval(()=>{
   if(!SCRIPT_URL) return;
   loadFromCloud(s=>{ if(s){ renderDashboard(); renderTracker(); } });
 }, 60000);
+
+// ── EXPORT MENU ────────────────────────────────────────────────
+function toggleExportMenu(){
+  const menu = document.getElementById('export-menu');
+  if(!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  menu.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen) updateExportMenuSelectedItems();
+}
+function closeExportMenu(){
+  const menu = document.getElementById('export-menu');
+  if(menu) menu.style.display = 'none';
+}
+function updateExportMenuSelectedItems(){
+  const hasSel = !!selectedId;
+  const label = document.getElementById('export-menu-selected-label');
+  const btnD  = document.getElementById('export-single-deltagare');
+  const btnE  = document.getElementById('export-single-eko');
+  const btnB  = document.getElementById('export-single-both');
+  if(label){ label.style.display = hasSel ? 'block' : 'none';
+    if(hasSel){ const ev=getEv(selectedId); label.textContent=ev?getName(ev)+' '+ev.year:'Valt event'; } }
+  if(btnD) btnD.style.display = hasSel ? 'block' : 'none';
+  if(btnE) btnE.style.display = hasSel ? 'block' : 'none';
+  if(btnB) btnB.style.display = hasSel ? 'block' : 'none';
+}
+
+function exportSingleXLSX(type){
+  if(!selectedId){ alert('Välj ett event i listan först.'); return; }
+  const ev = getEv(selectedId); if(!ev) return;
+  const wb = XLSX.utils.book_new();
+  if(type==='deltagare'||type==='both'){
+    const ap=getAP(ev.id),af=getAF(ev.id),at=getAT(ev.id);
+    const rows=[['Fält','Värde'],['Event',getName(ev)],['Varumärke',getBrand(ev)],['År',ev.year],
+      ['Datum',getDate(ev)],['Lokal',getVenue(ev)||''],['',''],
+      ['Mål betalande',getPaying(ev)],['Mål gäster',getGuests(ev)??''],['Mål totalt',getTotal(ev)],['',''],
+      ['Faktiskt betalande',ap??''],['Faktiskt gäster',af??''],['Faktiskt totalt',at??''],['',''],
+      ['Diff',at!==null?at-getTotal(ev):''],['Uppfyllnad %',at!==null?Math.round(at/getTotal(ev)*100)+'%':'']];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:25},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,ws,'Deltagare');
+  }
+  if(type==='eko'||type==='both'){
+    const d=getEkoData(ev.id);
+    const bu=d.budget||{},ut=d.utfall||{};
+    const bInt=ekoIntakter(d,'budget'),bKost=ekoKostnader(d,'budget');
+    const uInt=ekoIntakter(d,'utfall'),uKost=ekoKostnader(d,'utfall');
+    const rows=[['Kategori','Budget (kr)','Utfall (kr)','Diff (kr)'],
+      ['INTÄKTER','','',''],
+      ['Biljetter',bu.biljetter||0,ut.biljetter||0,(ut.biljetter||0)-(bu.biljetter||0)],
+      ['Sponsorer',bu.sponsorer||0,ut.sponsorer||0,(ut.sponsorer||0)-(bu.sponsorer||0)],
+      ['Utställare',bu.utstallare||0,ut.utstallare||0,(ut.utstallare||0)-(bu.utstallare||0)],
+      ['Totalt intäkter',bInt,uInt,uInt-bInt],['','','',''],
+      ['KOSTNADER','','',''],
+      ['Lokal',bu.lokal||0,ut.lokal||0,(ut.lokal||0)-(bu.lokal||0)],
+      ['Mat & dryck',bu.mat||0,ut.mat||0,(ut.mat||0)-(bu.mat||0)],
+      ['Talare/Artister',bu.talare||0,ut.talare||0,(ut.talare||0)-(bu.talare||0)],
+      ['Personal',bu.personal||0,ut.personal||0,(ut.personal||0)-(bu.personal||0)],
+      ['Totalt kostnader',bKost,uKost,uKost-bKost],['','','',''],
+      ['RESULTAT',bInt-bKost,uInt-uKost,(uInt-uKost)-(bInt-bKost)]];
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:25},{wch:16},{wch:16},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,ws,'Ekonomi');
+  }
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([wbout],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=getName(ev).replace(/[^a-zA-Z0-9åäöÅÄÖ]/g,'_')+'_'+ev.year+'.xlsx';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+
+function exportAllEkoXLSX(){
+  const wb=XLSX.utils.book_new();
+  const h=['Event','Varumärke','År','Int Budget','Int Utfall','Kost Budget','Kost Utfall','Res Budget','Res Utfall'];
+  const rows=[h];
+  events.forEach(e=>{
+    const d=getEkoData(e.id);
+    rows.push([getName(e),getBrand(e),e.year,
+      ekoIntakter(d,'budget'),ekoIntakter(d,'utfall'),
+      ekoKostnader(d,'budget'),ekoKostnader(d,'utfall'),
+      ekoIntakter(d,'budget')-ekoKostnader(d,'budget'),
+      ekoIntakter(d,'utfall')-ekoKostnader(d,'utfall')]);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=h.map((_,i)=>({wch:i<3?20:14}));
+  XLSX.utils.book_append_sheet(wb,ws,'Ekonomi');
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([wbout],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='Ekonomi_alla_event.xlsx';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+
+function exportBothXLSX(){
+  const wb=XLSX.utils.book_new();
+  const h1=['Varumärke','År','Event','Datum','Lokal','Mål bet','Mål gäster','Mål tot','Fakt bet','Fakt gäster','Fakt tot','Diff','%'];
+  const r1=[h1];
+  events.forEach(e=>{
+    const ap=getAP(e.id),af=getAF(e.id),at=getAT(e.id);
+    r1.push([getBrand(e),e.year,getName(e),getDate(e),getVenue(e)||'',
+      getPaying(e),getGuests(e)??'',getTotal(e),ap??'',af??'',at??'',
+      at!==null?at-getTotal(e):'',at!==null?Math.round(at/getTotal(e)*100):'']);
+  });
+  const ws1=XLSX.utils.aoa_to_sheet(r1);
+  ws1['!cols']=h1.map((_,i)=>({wch:i<5?18:12}));
+  XLSX.utils.book_append_sheet(wb,ws1,'Deltagare');
+  const h2=['Event','Varumärke','År','Int Budget','Int Utfall','Kost Budget','Kost Utfall','Res Budget','Res Utfall'];
+  const r2=[h2];
+  events.forEach(e=>{
+    const d=getEkoData(e.id);
+    r2.push([getName(e),getBrand(e),e.year,
+      ekoIntakter(d,'budget'),ekoIntakter(d,'utfall'),
+      ekoKostnader(d,'budget'),ekoKostnader(d,'utfall'),
+      ekoIntakter(d,'budget')-ekoKostnader(d,'budget'),
+      ekoIntakter(d,'utfall')-ekoKostnader(d,'utfall')]);
+  });
+  const ws2=XLSX.utils.aoa_to_sheet(r2);
+  ws2['!cols']=h2.map((_,i)=>({wch:i<3?18:14}));
+  XLSX.utils.book_append_sheet(wb,ws2,'Ekonomi');
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob=new Blob([wbout],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='Eventplanering_komplett.xlsx';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
 </script>
 
 
