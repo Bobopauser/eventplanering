@@ -4681,6 +4681,7 @@ function updateEkoCardSummary(evId, data){
     }
   }
   renderEkoKpi();
+  if(ekoHistorikOpen) renderEkoHistorik();
 }
 
 function buildEkoChart(bInt,bKost,bRes,uInt,uKost,uRes,resCol){
@@ -4841,6 +4842,7 @@ function renderEkonomi(){
     } else {
       const getVal = d => ekoView==='resultat'?[d.bRes,d.uRes]:
         ekoView==='intakter'?[d.bInt,d.uInt]:[d.bKost,d.uKost];
+      // Each view gets its own scale so bars are always proportional
       const maxVal = Math.max(1,...yearData.map(d=>Math.max(...getVal(d).map(Math.abs))));
 
       chartEl.innerHTML = `
@@ -4931,9 +4933,88 @@ function renderEkonomi(){
             <div style="font-size:0.8rem;font-weight:600;">${uKost.toLocaleString('sv')} kr</div>
           </div>`
           :`<span style="font-size:0.72rem;color:var(--muted);font-style:italic;">Ingen data ännu</span>`}
+
+        <!-- Prev year comparison badge -->
+        ${(()=>{
+          const prevEv = events.find(e=>getName(e)===getName(ev)&&e.year===ev.year-1);
+          if(!prevEv) return '';
+          const pd = getEkoData(prevEv.id);
+          const prevUInt = ekoIntakter(pd,'utfall'), prevUKost = ekoKostnader(pd,'utfall');
+          if(!prevUInt&&!prevUKost) return '';
+          const prevRes = prevUInt-prevUKost;
+          const diffRes = uRes-prevRes;
+          const diffPct = prevRes!==0?Math.round(diffRes/Math.abs(prevRes)*100):null;
+          const col = diffRes>0?'var(--green)':diffRes<0?'var(--red)':'var(--muted)';
+          return '<div style="display:flex;align-items:center;gap:5px;background:rgba(108,99,255,0.08);'
+            +'border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:0.7rem;"'
+            +' onclick="event.stopPropagation();toggleEkoYearComp(\'eko-ycomp-'+ev.id+'\')" title="Jämför med '+(ev.year-1)+'">'
+            +'<span style="color:var(--muted);">vs '+(ev.year-1)+':</span>'
+            +'<span style="font-weight:700;color:'+col+'">'+(diffRes>=0?'+':'')+diffRes.toLocaleString('sv')+' kr'
+            +(diffPct!==null?' ('+( diffPct>=0?'+':'')+diffPct+'%)':'')+'</span>'
+            +'<span style="color:var(--muted);">▾</span>'
+            +'</div>';
+        })()}
           <span style="color:var(--muted);font-size:0.7rem;">▾</span>
         </div>
       </div>
+
+      <!-- Year comparison expandable -->
+      ${(()=>{
+        const prevEv = events.find(e=>getName(e)===getName(ev)&&e.year===ev.year-1);
+        if(!prevEv) return '';
+        const pd = getEkoData(prevEv.id);
+        const prevUInt=ekoIntakter(pd,'utfall'),prevUKost=ekoKostnader(pd,'utfall');
+        const prevBInt=ekoIntakter(pd,'budget'),prevBKost=ekoKostnader(pd,'budget');
+        if(!prevUInt&&!prevUKost&&!prevBInt&&!prevBKost) return '';
+
+        const rows = [
+          ['Biljetter','biljetter','var(--accent)'],
+          ['Sponsorer','sponsorer','var(--accent2)'],
+          ['Utställare','utstallare','#d4a017'],
+          ['Lokal','lokal','var(--red)'],
+          ['Mat & dryck','mat','#e07b39'],
+          ['Talare/Artister','talare','#9b59b6'],
+          ['Personal','personal','var(--muted)'],
+        ].map(([label,field,col])=>{
+          const prevB=(pd.budget||{})[field]||0, prevU=(pd.utfall||{})[field]||0;
+          const currB=(d.budget||{})[field]||0, currU=(d.utfall||{})[field]||0;
+          if(!prevB&&!prevU&&!currB&&!currU) return '';
+          const maxV=Math.max(prevB,prevU,currB,currU,1);
+          const diff=currU-prevU;
+          const diffCol=diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
+          return '<div style="margin-bottom:10px;">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;margin-bottom:4px;">'
+              +'<span style="color:var(--muted);font-weight:600;">'+label+'</span>'
+              +'<span style="font-size:0.68rem;color:'+diffCol+';font-weight:700;">'+(diff!==0?(diff>0?'+':'')+diff.toLocaleString('sv')+' kr':'–')+'</span>'
+            +'</div>'
+            +'<div style="display:flex;flex-direction:column;gap:3px;">'
+              // prev year
+              +'<div style="display:flex;align-items:center;gap:6px;">'
+                +'<span style="font-size:0.6rem;color:var(--muted);width:50px;flex-shrink:0;">'+(ev.year-1)+'</span>'
+                +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+                  +'<div style="height:100%;width:'+Math.round(prevU/maxV*100)+'%;background:rgba(255,255,255,0.25);border-radius:3px;"></div>'
+                +'</div>'
+                +'<span style="font-size:0.68rem;color:var(--muted);min-width:80px;text-align:right;">'+(prevU?prevU.toLocaleString('sv')+' kr':'–')+'</span>'
+              +'</div>'
+              // curr year
+              +'<div style="display:flex;align-items:center;gap:6px;">'
+                +'<span style="font-size:0.6rem;color:'+col+';width:50px;flex-shrink:0;font-weight:700;">'+ev.year+'</span>'
+                +'<div style="flex:1;height:7px;background:var(--border);border-radius:3px;overflow:hidden;">'
+                  +'<div style="height:100%;width:'+Math.round(currU/maxV*100)+'%;background:'+col+';border-radius:3px;opacity:0.9;"></div>'
+                +'</div>'
+                +'<span style="font-size:0.68rem;color:'+col+';font-weight:700;min-width:80px;text-align:right;">'+(currU?currU.toLocaleString('sv')+' kr':'–')+'</span>'
+              +'</div>'
+            +'</div>'
+          +'</div>';
+        }).filter(Boolean).join('');
+
+        return '<div id="eko-ycomp-'+ev.id+'" style="display:none;padding:14px 16px;background:rgba(108,99,255,0.04);border-bottom:1px solid var(--border);">'
+          +'<div style="font-size:0.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">'
+            +'📊 Jämförelse '+(ev.year-1)+' vs '+ev.year
+          +'</div>'
+          +rows
+          +'</div>';
+      })()}
 
       <!-- Expandable body -->
       <div id="eko-card-${ev.id}" style="display:none;">
@@ -5017,6 +5098,121 @@ function renderEkonomi(){
       </div>
     </div>`;
   }).join('');
+}
+
+
+// ── EKONOMI HISTORIK ───────────────────────────────────────────
+let ekoHistorikOpen = false;
+
+function toggleEkoHistorik(){
+  ekoHistorikOpen = !ekoHistorikOpen;
+  const panel = document.getElementById('eko-historik-panel');
+  const arrow = document.getElementById('eko-historik-arrow');
+  if(panel) panel.style.display = ekoHistorikOpen ? 'block' : 'none';
+  if(arrow) arrow.style.transform = ekoHistorikOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  if(ekoHistorikOpen) renderEkoHistorik();
+}
+
+function renderEkoHistorik(){
+  const panel = document.getElementById('eko-historik-panel');
+  if(!panel) return;
+
+  // Group all events by name
+  const byName = {};
+  events.forEach(ev=>{
+    const n = getName(ev);
+    if(!byName[n]) byName[n] = {name:n, brand:getBrand(ev), years:{}};
+    byName[n].years[ev.year] = ev;
+  });
+
+  // Only show events that have eco data in at least one year
+  const groups = Object.values(byName).filter(g=>{
+    return Object.values(g.years).some(ev=>{
+      const d = getEkoData(ev.id);
+      return ekoIntakter(d,'budget')>0 || ekoIntakter(d,'utfall')>0 ||
+             ekoKostnader(d,'budget')>0 || ekoKostnader(d,'utfall')>0;
+    });
+  }).sort((a,b)=>a.brand.localeCompare(b.brand)||a.name.localeCompare(b.name));
+
+  if(!groups.length){
+    panel.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Fyll i ekonomidata på eventen nedan — här visas jämförelsen år för år.</div>';
+    return;
+  }
+
+  panel.innerHTML = groups.map(group=>{
+    const bc = BRAND_COLORS[group.brand]||'var(--muted)';
+    const years = Object.keys(group.years).map(Number).sort();
+
+    // Gather all values across years
+    const yearData = years.map(y=>{
+      const ev = group.years[y];
+      const d = getEkoData(ev.id);
+      const bInt=ekoIntakter(d,'budget'), bKost=ekoKostnader(d,'budget'), bRes=bInt-bKost;
+      const uInt=ekoIntakter(d,'utfall'), uKost=ekoKostnader(d,'utfall'), uRes=uInt-uKost;
+      const hasData = uInt>0||uKost>0||bInt>0||bKost>0;
+      return {y, ev, bInt, bKost, bRes, uInt, uKost, uRes, hasData};
+    }).filter(d=>d.hasData);
+
+    if(!yearData.length) return '';
+
+    const maxVal = Math.max(1, ...yearData.map(d=>
+      Math.max(d.bInt, d.uInt, d.bKost, d.uKost, Math.abs(d.bRes), Math.abs(d.uRes))
+    ));
+
+    const BAR_H = 100;
+
+    // Three chart sections: Intäkter, Kostnader, Resultat
+    const sections = [
+      { label:'Intäkter', bKey:'bInt', uKey:'uInt', col:'var(--green)' },
+      { label:'Kostnader', bKey:'bKost', uKey:'uKost', col:'var(--red)' },
+      { label:'Resultat', bKey:'bRes', uKey:'uRes', col:null },
+    ];
+
+    const charts = sections.map(sec=>{
+      const bars = yearData.map(d=>{
+        const bv = d[sec.bKey], uv = d[sec.uKey];
+        const col = sec.col || pcol(uv>0?100:uv===0?50:0);
+        const bH = Math.round(Math.abs(bv)/maxVal*BAR_H);
+        const uH = Math.round(Math.abs(uv)/maxVal*BAR_H);
+        const pct = bv!==0 ? Math.round(uv/bv*100) : null;
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:60px;">
+          <div style="font-size:0.65rem;font-weight:700;color:${col}">
+            ${uv!==0?(uv>=0?'':'-')+Math.abs(uv).toLocaleString('sv'):'–'}
+          </div>
+          <div style="height:${BAR_H}px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px;">
+            <div style="width:14px;height:${bH}px;background:rgba(255,255,255,0.15);border-radius:3px 3px 0 0;" title="Budget: ${bv.toLocaleString('sv')} kr"></div>
+            <div style="width:20px;height:${uH}px;background:${col};border-radius:3px 3px 0 0;opacity:0.9;" title="Utfall: ${uv.toLocaleString('sv')} kr"></div>
+          </div>
+          <div style="font-size:0.7rem;font-weight:700;">${d.y}</div>
+          ${pct!==null&&bv!==0?`<div style="font-size:0.6rem;color:${col}">${pct}%</div>`:''}
+        </div>`;
+      }).join('');
+
+      return `<div style="flex:1;min-width:160px;">
+        <div style="font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+          letter-spacing:0.05em;margin-bottom:8px;">${sec.label}</div>
+        <div style="display:flex;gap:6px;align-items:flex-end;">${bars}</div>
+        <div style="display:flex;gap:10px;margin-top:6px;font-size:0.6rem;color:var(--muted);">
+          <span style="opacity:0.5;">█ Budget</span><span>█ Utfall</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div style="width:4px;height:24px;border-radius:2px;background:${bc};"></div>
+        <span style="font-size:0.88rem;font-weight:700;">${group.name}</span>
+        ${brandPill(group.brand)}
+      </div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;">${charts}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleEkoYearComp(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
 }
 
 function toggleEkoCard(id){
@@ -5276,6 +5472,15 @@ setInterval(()=>{
       </div>
     </div>
     <div style="padding:16px;" id="eko-year-chart"></div>
+  </div>
+
+  <!-- Historik per event -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header" onclick="toggleEkoHistorik()" style="cursor:pointer;">
+      <h2>📊 Historik per event — år för år</h2>
+      <span id="eko-historik-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block;">▾</span>
+    </div>
+    <div id="eko-historik-panel" style="display:none;padding:16px;" ></div>
   </div>
 
   <!-- Event list -->
