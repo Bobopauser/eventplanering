@@ -5490,11 +5490,11 @@ function resetAllData(){
   }
   keysToRemove.forEach(k => localStorage.removeItem(k));
 
-  // Reset in-memory state
+  // Reset in-memory state completely — no base events
   actuals = {}; edits = {}; notes = {}; tasks = {};
   doneActs = {}; studioBookings = [];
-  initEvents();
-  idCounter = events.length;
+  events = [];
+  idCounter = 0;
 
   // Clear Google Sheets too if connected
   if(SCRIPT_URL){
