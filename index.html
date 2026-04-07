@@ -6241,16 +6241,6 @@ function renderTasks(){
   if(filterMeeting!=='all') filtered = filtered.filter(t=>t.meetingId===filterMeeting);
 
 
-  const CAT_META = {
-    Event: {label:'Event', color:'#6c63ff'},
-    Pren:  {label:'Prenumeration', color:'#4ecdc4'}
-  };
-  const PRIO_META = {
-    hog:   {label:'🔴 Hög prio',  col:'var(--red)'},
-    medel: {label:'🟡 Medel prio', col:'#f59e0b'},
-    lag:   {label:'🟢 Låg prio',  col:'var(--green)'}
-  };
-
   ['hog','medel','lag'].forEach(prio=>{
     const colEl = document.getElementById('col-'+prio);
     if(!colEl) return;
@@ -6372,20 +6362,36 @@ function openEditTask(id){
   const t=_loadTasks().find(x=>x.id===id); if(!t) return;
   _taskEditId=id;
   document.getElementById('task-modal-title').textContent='Redigera uppgift';
-  document.getElementById('tm-title').value=t.title||'';
-  document.getElementById('tm-prio').value=t.prio||'medel';
-  document.getElementById('tm-cat').value=t.cat||'Event';
-  document.getElementById('tm-due').value=t.due||'';
-  document.getElementById('tm-owner').value=t.owner||'';
-  document.getElementById('tm-note').value=t.note||'';
-  const sel=document.getElementById('tm-event');
-  sel.innerHTML='<option value="">— Inget event —</option>';
+  document.getElementById('tm-title').value  = t.title||'';
+  document.getElementById('tm-prio').value   = t.prio||'medel';
+  document.getElementById('tm-cat').value    = t.cat||'Event';
+  document.getElementById('tm-due').value    = t.due||'';
+  document.getElementById('tm-owner').value  = t.owner||'';
+  document.getElementById('tm-note').value   = t.note||'';
+  document.getElementById('tm-notify').value = t.notify||'';
+  // Brand
+  const tmBrand = document.getElementById('tm-brand');
+  if(tmBrand) tmBrand.value = t.brand||'';
+  // Event select
+  const sel = document.getElementById('tm-event');
+  sel.innerHTML = '<option value="">— Inget event —</option>';
   [...events].sort((a,b)=>a.year-b.year||getName(a).localeCompare(getName(b))).forEach(ev=>{
     const o=document.createElement('option'); o.value=ev.id;
     o.textContent=getName(ev)+' '+ev.year;
     if(ev.id===t.eventId) o.selected=true;
     sel.appendChild(o);
   });
+  // Meeting select
+  const ms = document.getElementById('tm-meeting');
+  if(ms){
+    ms.innerHTML = '<option value="">— Inget möte —</option>';
+    loadMeetings().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(m=>{
+      const o=document.createElement('option');
+      o.value=m.id; o.textContent=(m.date?m.date+' · ':'')+m.name;
+      if(m.id===t.meetingId) o.selected=true;
+      ms.appendChild(o);
+    });
+  }
   document.getElementById('task-modal').style.display='flex';
 }
 
