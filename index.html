@@ -6395,22 +6395,32 @@ function saveTask(){
   const title=document.getElementById('tm-title').value.trim();
   if(!title){ alert('Ange en uppgift!'); return; }
   const tasks=_loadTasks();
+  const getV = id => { const el=document.getElementById(id); return el?el.value.trim():''; };
   if(_taskEditId){
     const t=tasks.find(x=>x.id===_taskEditId);
-    if(t){ t.title=title; t.prio=document.getElementById('tm-prio').value;
-      t.cat=document.getElementById('tm-cat').value;
-      t.due=document.getElementById('tm-due').value;
-      t.owner=document.getElementById('tm-owner').value.trim();
-      t.eventId=document.getElementById('tm-event').value;
-      t.note=document.getElementById('tm-note').value.trim(); }
+    if(t){
+      t.title   = title;
+      t.prio    = getV('tm-prio');
+      t.cat     = getV('tm-cat');
+      t.brand   = getV('tm-brand');
+      t.due     = getV('tm-due');
+      t.owner   = getV('tm-owner');
+      t.eventId = getV('tm-event');
+      t.meetingId = getV('tm-meeting');
+      t.notify  = getV('tm-notify');
+      t.note    = getV('tm-note');
+    }
   } else {
     tasks.push({ id:_tid(), title,
-      prio:document.getElementById('tm-prio').value,
-      cat:document.getElementById('tm-cat').value,
-      due:document.getElementById('tm-due').value,
-      owner:document.getElementById('tm-owner').value.trim(),
-      eventId:document.getElementById('tm-event').value,
-      note:document.getElementById('tm-note').value.trim(),
+      prio:     getV('tm-prio'),
+      cat:      getV('tm-cat'),
+      brand:    getV('tm-brand'),
+      due:      getV('tm-due'),
+      owner:    getV('tm-owner'),
+      eventId:  getV('tm-event'),
+      meetingId:getV('tm-meeting'),
+      notify:   getV('tm-notify'),
+      note:     getV('tm-note'),
       done:false, doneAt:null, createdAt:new Date().toISOString() });
   }
   _saveTasks(tasks); closeTaskModal(); renderTasks();
