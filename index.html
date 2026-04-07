@@ -5635,6 +5635,17 @@ function newMeetingId(){ return 'm'+Date.now()+'_'+Math.random().toString(36).sl
 
 
 // ── NOTIFIERINGSINSTÄLLNINGAR ──────────────────────────────────
+
+function getNotifySubject(){
+  return localStorage.getItem('ep_notify_subject') || '✅ Uppgift klar: {{titel}}';
+}
+function getNotifyBody(){
+  return localStorage.getItem('ep_notify_body') || 'Hej!\n\nFöljande uppgift har markerats som klar:\n\n📋 Uppgift: {{titel}}\n🎯 Prioritet: {{prio}}\n🏷 Kategori: {{kategori}}\n🏢 Varumärke: {{varumärke}}\n📅 Kopplat event: {{event}}\n📅 Kopplat möte: {{möte}}\n👤 Ansvarig: {{ansvarig}}\n\nNotering: {{notering}}\n\nAvklarad: {{datum}}\n\n// Eventplanering Dashboard';
+}
+function resetNotifyTemplate(){
+  document.getElementById('notify-subject-input').value = '✅ Uppgift klar: {{titel}}';
+  document.getElementById('notify-body-input').value = 'Hej!\n\nFöljande uppgift har markerats som klar:\n\n📋 Uppgift: {{titel}}\n🎯 Prioritet: {{prio}}\n🏷 Kategori: {{kategori}}\n🏢 Varumärke: {{varumärke}}\n📅 Kopplat event: {{event}}\n📅 Kopplat möte: {{möte}}\n👤 Ansvarig: {{ansvarig}}\n\nNotering: {{notering}}\n\nAvklarad: {{datum}}\n\n// Eventplanering Dashboard';
+}
 function getNotifyEmails(){
   return localStorage.getItem('ep_notify_emails')||'';
 }
@@ -5643,14 +5654,17 @@ function saveNotifyEmails(v){
 }
 function openNotifySettings(){
   document.getElementById('notify-emails-input').value = getNotifyEmails();
+  document.getElementById('notify-subject-input').value = getNotifySubject();
+  document.getElementById('notify-body-input').value = getNotifyBody();
   document.getElementById('notify-settings-modal').style.display = 'flex';
 }
 function closeNotifySettings(){
   document.getElementById('notify-settings-modal').style.display = 'none';
 }
 function saveNotifySettings(){
-  const v = document.getElementById('notify-emails-input').value.trim();
-  saveNotifyEmails(v);
+  saveNotifyEmails(document.getElementById('notify-emails-input').value.trim());
+  localStorage.setItem('ep_notify_subject', document.getElementById('notify-subject-input').value.trim() || '✅ Uppgift klar: {{titel}}');
+  localStorage.setItem('ep_notify_body', document.getElementById('notify-body-input').value || getNotifyBody());
   closeNotifySettings();
   updateNotifyDisplay();
 }
@@ -6452,18 +6466,20 @@ function sendTaskDoneNotification(t){
 
   const ev = t.eventId ? getEv(t.eventId) : null;
   const mtg = t.meetingId ? loadMeetings().find(m=>m.id===t.meetingId) : null;
-  const subject = encodeURIComponent('✅ Uppgift klar: ' + t.title);
-  let body = 'Hej!\n\nFöljande uppgift har markerats som klar:\n\n';
-  body += '📋 Uppgift: ' + t.title + '\n';
-  body += '🎯 Prioritet: ' + {hog:'Hög',medel:'Medel',lag:'Låg'}[t.prio] + '\n';
-  if(t.cat) body += '🏷 Kategori: ' + t.cat + '\n';
-  if(t.brand) body += '🏢 Varumärke: ' + t.brand + '\n';
-  if(ev) body += '📅 Kopplat event: ' + getName(ev) + ' ' + ev.year + '\n';
-  if(mtg) body += '📅 Kopplat möte: ' + mtg.name + '\n';
-  if(t.owner) body += '👤 Ansvarig: ' + t.owner + '\n';
-  if(t.note) body += '\nNotering: ' + t.note + '\n';
-  body += '\nAvklarad: ' + new Date().toLocaleDateString('sv-SE') + '\n';
-  body += '\n// Eventplanering Dashboard';
+  function fillTemplate(tmpl){
+    return tmpl
+      .replace(/{{titel}}/g, t.title||'')
+      .replace(/{{prio}}/g, {hog:'Hög',medel:'Medel',lag:'Låg'}[t.prio]||t.prio||'')
+      .replace(/{{kategori}}/g, t.cat||'')
+      .replace(/{{varumärke}}/g, t.brand||'')
+      .replace(/{{event}}/g, ev ? getName(ev)+' '+ev.year : '')
+      .replace(/{{möte}}/g, mtg ? mtg.name : '')
+      .replace(/{{ansvarig}}/g, t.owner||'')
+      .replace(/{{notering}}/g, t.note||'')
+      .replace(/{{datum}}/g, new Date().toLocaleDateString('sv-SE'));
+  }
+  const subject = encodeURIComponent(fillTemplate(getNotifySubject()));
+  const body    = fillTemplate(getNotifyBody());
   const mailto = 'mailto:' + allEmails.join(',') + '?subject=' + subject + '&body=' + encodeURIComponent(body);
   const a = document.createElement('a');
   a.href = mailto;
@@ -6527,7 +6543,30 @@ function deleteTask(id){
     <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Dessa adresser får alltid ett mail när en uppgift markeras som klar.</p>
     <div class="form-group">
       <label class="form-label">E-postadresser (separera med komma)</label>
-      <textarea id="notify-emails-input" class="note-area" rows="3" placeholder="namn@exempel.se, namn2@exempel.se"></textarea>
+      <textarea id="notify-emails-input" class="note-area" rows="2" placeholder="namn@exempel.se, namn2@exempel.se"></textarea>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:14px 0 10px;padding-top:12px;">
+      <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">📝 Mailmall</div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-bottom:10px;">
+        Variabler: <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{titel}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{prio}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{kategori}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{varumärke}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{event}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{möte}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{ansvarig}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{notering}}</code>
+        <code style="background:var(--card2);padding:1px 4px;border-radius:3px;">{{datum}}</code>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ämnesrad</label>
+        <input id="notify-subject-input" class="form-input" type="text" placeholder="✅ Uppgift klar: {{titel}}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Brödtext</label>
+        <textarea id="notify-body-input" class="note-area" rows="7"></textarea>
+      </div>
+      <button onclick="resetNotifyTemplate()" style="font-size:0.68rem;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">↺ Återställ standardmall</button>
     </div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
       <button onclick="closeNotifySettings()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Avbryt</button>
