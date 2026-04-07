@@ -6269,6 +6269,7 @@ function renderTasks(){
         // Cat pill + action buttons
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
           +'<span style="font-size:0.6rem;padding:2px 8px;border-radius:4px;font-weight:700;background:'+cat.color+'22;color:'+cat.color+';border:1px solid '+cat.color+'44;">'+cat.label+'</span>'
+          +(t.brand?(()=>{ const bc=BRAND_COLORS[t.brand]||'#888'; return '<span style="font-size:0.6rem;padding:2px 8px;border-radius:4px;font-weight:700;background:'+bc+'22;color:'+bc+';border:1px solid '+bc+'44;margin-left:3px;">'+t.brand+'</span>'; })():'')
           +'<div style="display:flex;gap:4px;">'
             +'<button data-action="done" title="'+(t.done?'Återöppna':'Markera klar')+'" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:'+(t.done?'var(--muted)':'var(--green)')+';">'+(t.done?'↩':'✓')+'</button>'
             +'<button data-action="delete" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--red);">✕</button>'
