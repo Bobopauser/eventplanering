@@ -775,62 +775,6 @@
 </div>
 
 
-<!-- ═══ EKONOMI ═══ -->
-<div id="tab-ekonomi" style="display:none;">
-<div class="content" style="padding:16px 26px;">
-
-  <!-- Filters -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-    <div class="brand-bar" id="eko-brand-bar" style="margin-bottom:0;">
-      <button class="brand-btn all-active" data-brand="all" onclick="setEkoBrand('all',this)">Alla varumärken</button>
-      <button class="brand-btn" data-brand="Vd-tidningen" onclick="setEkoBrand('Vd-tidningen',this)">Vd-tidningen</button>
-      <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
-      <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
-      <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
-  <button class="brand-btn" data-brand="Hållbart Samhällsbyggande" onclick="setEkoBrand('Hållbart Samhällsbyggande',this)">Hållbart Samhällsbyggande</button>
-  <button class="brand-btn" data-brand="Kvalitetsvård" onclick="setEkoBrand('Kvalitetsvård',this)">Kvalitetsvård</button>
-  <button class="brand-btn" data-brand="Praktiskt ledarskap" onclick="setEkoBrand('Praktiskt ledarskap',this)">Praktiskt ledarskap</button>
-    </div>
-    <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomi()">
-      <option value="all">Alla år</option>
-      <option value="2026" selected>2026</option>
-      <option value="2027">2027</option>
-      <option value="2028">2028</option>
-    </select>
-  </div>
-
-  <!-- KPI strip -->
-  <div id="eko-kpi" class="s-strip" style="margin-bottom:16px;"></div>
-
-  <!-- Year comparison chart -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header">
-      <h2>📈 Resultat per år</h2>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button onclick="setEkoView('resultat',this)" id="eko-v-resultat" class="fbtn active" style="font-size:0.7rem;padding:3px 10px;">Resultat</button>
-        <button onclick="setEkoView('intakter',this)" id="eko-v-intakter" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Intäkter</button>
-        <button onclick="setEkoView('kostnader',this)" id="eko-v-kostnader" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Kostnader</button>
-      </div>
-    </div>
-    <div style="padding:16px;" id="eko-year-chart"></div>
-  </div>
-
-  <!-- Historik per event -->
-  <div class="card" style="margin-bottom:16px;">
-    <div class="card-header" onclick="toggleEkoHistorik()" style="cursor:pointer;">
-      <h2>📊 Historik per event — år för år</h2>
-      <span id="eko-historik-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block;">▾</span>
-    </div>
-    <div id="eko-historik-panel" style="display:none;padding:16px;" ></div>
-  </div>
-
-  <!-- Event list -->
-  <div id="eko-event-list"></div>
-
-</div>
-</div>
-
-
 <!-- ═══ UPPGIFTER ═══ -->
 <div id="tab-tasks" style="display:none;">
 <div class="content" style="padding:16px 26px 24px;">
@@ -6241,9 +6185,6 @@ function renderTasks(){
   if(filterCat!=='all') filtered = filtered.filter(t=>t.cat===filterCat);
   if(filterEv!=='all')    filtered = filtered.filter(t=>t.eventId===filterEv);
   if(filterBrand!=='all') filtered = filtered.filter(t=>t.brand===filterBrand);
-  const filterMeeting = document.getElementById('task-filter-meeting')?.value||'all';
-  if(filterMeeting!=='all') filtered = filtered.filter(t=>t.meetingId===filterMeeting);
-
   updateNotifyDisplay();
 
   // Render meeting list (DOM-based, no inline onclick)
@@ -6295,6 +6236,10 @@ function renderTasks(){
       + meetings.map(m=>'<option value="'+m.id+'"'+(m.id===curMeeting?' selected':'')+'>'+
         (m.date?m.date+' · ':'')+m.name+'</option>').join('');
   }
+  // Apply meeting filter AFTER dropdown is repopulated
+  const filterMeeting = document.getElementById('task-filter-meeting')?.value||'all';
+  if(filterMeeting!=='all') filtered = filtered.filter(t=>t.meetingId===filterMeeting);
+
 
   const CAT_META = {
     Event: {label:'Event', color:'#6c63ff'},
@@ -6407,7 +6352,18 @@ function openAddTask(defaultPrio){
     const o=document.createElement('option'); o.value=ev.id;
     o.textContent=getName(ev)+' '+ev.year; sel.appendChild(o);
   });
-  populateMeetingSelect('tm-meeting','');
+  // Rebuild meeting select inline
+  (function(){
+    const ms = document.getElementById('tm-meeting');
+    if(!ms) return;
+    ms.innerHTML = '<option value="">— Inget möte —</option>';
+    loadMeetings().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(m=>{
+      const o = document.createElement('option');
+      o.value = m.id;
+      o.textContent = (m.date ? m.date+' · ' : '') + m.name;
+      ms.appendChild(o);
+    });
+  })();
   document.getElementById('task-modal').style.display='flex';
   setTimeout(()=>document.getElementById('tm-title').focus(),50);
 }
