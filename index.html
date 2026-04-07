@@ -5720,9 +5720,7 @@ function saveMeeting(){
 }
 
 function deleteMeeting(id){
-  if(!confirm('Ta bort mötet? Uppgifter kopplade till mötet tappar sin koppling.')) return;
   saveMeetings(loadMeetings().filter(x=>x.id!==id));
-  // Remove meetingId from tasks
   const tasks = _loadTasks().map(t=>{ if(t.meetingId===id) t.meetingId=''; return t; });
   _saveTasks(tasks);
   renderTasks();
@@ -6248,28 +6246,43 @@ function renderTasks(){
 
   updateNotifyDisplay();
 
-  // Render meeting list
+  // Render meeting list (DOM-based, no inline onclick)
   const meetingsSection = document.getElementById('meetings-section');
   if(meetingsSection){
     const meetings = loadMeetings().sort((a,b)=>(a.date||'zz').localeCompare(b.date||'zz'));
+    meetingsSection.innerHTML = '';
     if(meetings.length){
-      meetingsSection.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">'
-        +'<span style="font-size:0.72rem;color:var(--muted);font-weight:600;">📅 Möten:</span>'
-        +meetings.map(m=>{
-          const taskCount = _loadTasks().filter(t=>t.meetingId===m.id&&!t.done).length;
-          return '<div style="display:flex;align-items:center;gap:0;background:var(--card2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
-            +'<button onclick="setMeetingFilter(\''+m.id+'\');renderTasks()" '
-            +'style="font-size:0.72rem;padding:4px 10px;background:transparent;border:none;color:var(--text);cursor:pointer;">'
-            +m.name+(m.date?' <span style=\'font-size:0.62rem;color:var(--muted);\'>'+m.date+'</span>':'')
-            +(taskCount?' <span style=\'font-size:0.65rem;background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;\'>'+taskCount+'</span>':'')
-            +'</button>'
-            +'<button onclick="openEditMeeting(\''+m.id+'\')" style="padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:0.65rem;">✏️</button>'
-            +'<button onclick="deleteMeeting(\''+m.id+'\')" style="padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--red);cursor:pointer;font-size:0.65rem;">✕</button>'
-            +'</div>';
-        }).join('')
-        +'</div>';
-    } else {
-      meetingsSection.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;align-items:center;';
+      const lbl = document.createElement('span');
+      lbl.style.cssText = 'font-size:0.72rem;color:var(--muted);font-weight:600;';
+      lbl.textContent = '📅 Möten:';
+      wrap.appendChild(lbl);
+      meetings.forEach(m=>{
+        const taskCount = _loadTasks().filter(t=>t.meetingId===m.id&&!t.done).length;
+        const pill = document.createElement('div');
+        pill.style.cssText = 'display:flex;align-items:center;background:var(--card2);border:1px solid var(--border);border-radius:8px;overflow:hidden;';
+        // Filter button
+        const btnFilter = document.createElement('button');
+        btnFilter.style.cssText = 'font-size:0.72rem;padding:4px 10px;background:transparent;border:none;color:var(--text);cursor:pointer;';
+        btnFilter.innerHTML = m.name + (m.date?' <span style="font-size:0.62rem;color:var(--muted);">'+m.date+'</span>':'') + (taskCount?' <span style="font-size:0.65rem;background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;">'+taskCount+'</span>':'');
+        btnFilter.addEventListener('click', ()=>{ setMeetingFilter(m.id); renderTasks(); });
+        // Edit button
+        const btnEdit = document.createElement('button');
+        btnEdit.style.cssText = 'padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:0.65rem;';
+        btnEdit.textContent = '✏️';
+        btnEdit.addEventListener('click', ()=>openEditMeeting(m.id));
+        // Delete button
+        const btnDel = document.createElement('button');
+        btnDel.style.cssText = 'padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--red);cursor:pointer;font-size:0.65rem;';
+        btnDel.textContent = '✕';
+        btnDel.addEventListener('click', ()=>deleteMeeting(m.id));
+        pill.appendChild(btnFilter);
+        pill.appendChild(btnEdit);
+        pill.appendChild(btnDel);
+        wrap.appendChild(pill);
+      });
+      meetingsSection.appendChild(wrap);
     }
   }
 
@@ -6459,8 +6472,8 @@ function toggleTaskDone(id, done){
 
 function sendTaskDoneNotification(t){
   // Combine fixed list + per-task recipients, deduplicate
-  const fixedEmails = getNotifyEmails().split(',').map(e=>e.trim()).filter(Boolean);
-  const taskEmails  = (t.notify||'').split(',').map(e=>e.trim()).filter(Boolean);
+  const fixedEmails = getNotifyEmails().split(';').map(e=>e.trim()).filter(Boolean);
+  const taskEmails  = (t.notify||'').split(';').map(e=>e.trim()).filter(Boolean);
   const allEmails   = [...new Set([...fixedEmails, ...taskEmails])];
   if(!allEmails.length) return;
 
@@ -6480,7 +6493,7 @@ function sendTaskDoneNotification(t){
   }
   const subject = encodeURIComponent(fillTemplate(getNotifySubject()));
   const body    = fillTemplate(getNotifyBody());
-  const mailto = 'mailto:' + allEmails.join(',') + '?subject=' + subject + '&body=' + encodeURIComponent(body);
+  const mailto = 'mailto:' + allEmails.join(';') + '?subject=' + subject + '&body=' + encodeURIComponent(body);
   const a = document.createElement('a');
   a.href = mailto;
   a.target = '_blank';
@@ -6495,7 +6508,6 @@ function moveTask(id, newPrio){
 }
 
 function deleteTask(id){
-  if(!confirm('Ta bort uppgiften?')) return;
   _saveTasks(_loadTasks().filter(x=>x.id!==id)); renderTasks();
 }
 
@@ -6543,7 +6555,7 @@ function deleteTask(id){
     <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Dessa adresser får alltid ett mail när en uppgift markeras som klar.</p>
     <div class="form-group">
       <label class="form-label">E-postadresser (separera med komma)</label>
-      <textarea id="notify-emails-input" class="note-area" rows="2" placeholder="namn@exempel.se, namn2@exempel.se"></textarea>
+      <textarea id="notify-emails-input" class="note-area" rows="2" placeholder="namn@exempel.se; namn2@exempel.se"></textarea>
     </div>
     <div style="border-top:1px solid var(--border);margin:14px 0 10px;padding-top:12px;">
       <div style="font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">📝 Mailmall</div>
