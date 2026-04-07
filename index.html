@@ -6259,6 +6259,7 @@ function renderTasks(){
       const sid = JSON.stringify(t.id);
 
       const card = document.createElement('div');
+      card.dataset.taskId = t.id;
       card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;'+(t.done?'opacity:0.45;':'');
       card.innerHTML =
         // Cat pill + action buttons
@@ -6297,7 +6298,7 @@ function renderTasks(){
           else if(a==='lag')    moveTask(t.id,'lag');
         });
       });
-      card.addEventListener('click', ()=>openEditTask(t.id));
+      card.addEventListener('click', ()=>openEditTask(card.dataset.taskId));
 
       return card;
     });
@@ -6359,7 +6360,7 @@ function openAddTask(defaultPrio){
 }
 
 function openEditTask(id){
-  const t=_loadTasks().find(x=>x.id===id); if(!t) return;
+  const t=_loadTasks().find(x=>x.id===id); if(!t){ console.warn('Task not found:', id, 'Available:', _loadTasks().map(x=>x.id)); return; }
   _taskEditId=id;
   document.getElementById('task-modal-title').textContent='Redigera uppgift';
   document.getElementById('tm-title').value  = t.title||'';
