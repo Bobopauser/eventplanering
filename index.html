@@ -1,6 +1,4 @@
-<!DOCTYP
-        
-E html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
@@ -328,7 +326,7 @@ E html>
 
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div id="login-screen" style="
-  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+  position:fixed;inset:0;background:var(--bg);display:none;align-items:center;
   justify-content:center;z-index:9999;flex-direction:column;gap:0;">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;
     padding:36px 40px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.4);">
@@ -371,6 +369,7 @@ E html>
   <div class="tab" onclick="showTab('calendar')">📆 Kalender</div>
   <div class="tab" onclick="showTab('tracker')">🎯 Uppföljning & Ekonomi</div>
   <div class="tab" onclick="showTab('details')">📋 Eventinfo</div>
+  <div class="tab" onclick="showTab('tasks')">✅ Uppgifter</div>
 
 </div>
 
@@ -690,6 +689,246 @@ E html>
   </div>
 </div>
 
+
+
+<!-- ═══ EVENTINFO ═══ -->
+<div class="content" id="tab-details" style="display:none;">
+  <div style="display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 120px);overflow:hidden;">
+    
+    <!-- Event list sidebar -->
+    <div style="border-right:1px solid var(--border);overflow-y:auto;padding:12px 0;">
+      <div style="padding:10px 10px 6px;display:flex;gap:6px;align-items:center;">
+        <select class="form-select" id="details-year-filter" style="font-size:0.78rem;padding:5px 8px;flex-shrink:0;width:90px;"
+          onchange="renderDetailsList()">
+          <option value="all">Alla år</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+        </select>
+        <input class="form-input" id="details-search" placeholder="🔍 Sök..." 
+          style="font-size:0.78rem;padding:5px 8px;flex:1;"
+          oninput="renderDetailsList()">
+      </div>
+      <div id="details-list"></div>
+    </div>
+    
+    <!-- Detail form panel -->
+    <div style="overflow-y:auto;padding:20px 24px;" id="details-panel">
+      <div style="padding:60px;text-align:center;color:var(--muted);">
+        <div style="font-size:2rem;margin-bottom:12px;">📋</div>
+        <div style="font-weight:700;margin-bottom:6px;">Välj ett event till vänster</div>
+        <div style="font-size:0.82rem;">Fyll i detaljerad information om eventen</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ EVENT SUMMARY MODAL ═══ -->
+<div class="modal-bg" id="detail-summary-modal" style="display:none;" 
+  onclick="if(event.target===this)document.getElementById('detail-summary-modal').style.display='none'">
+  <div class="modal" style="max-width:680px;max-height:85vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <h3 id="summary-modal-title">📋 Eventinfo</h3>
+      <button class="modal-close" onclick="document.getElementById('detail-summary-modal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="summary-modal-body" style="overflow-y:auto;flex:1;"></div>
+    <div class="modal-footer" style="gap:10px;">
+      <button class="btn btn-cancel" onclick="document.getElementById('detail-summary-modal').style.display='none'">Stäng</button>
+      <button class="btn" id="summary-edit-btn"
+        style="padding:8px 16px;border-radius:8px;border:1px solid var(--accent);
+        background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;">
+        ✏️ Redigera i Eventinfo
+      </button>
+      <button class="btn btn-primary" id="summary-export-btn">📥 Exportera till Excel</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ═══ EXPORT ICS MODAL ═══ -->
+<div class="modal-bg" id="export-ics-modal" style="display:none;" onclick="if(event.target===this)document.getElementById('export-ics-modal').style.display='none'">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>📅 Exportera till Outlook</h3>
+      <button class="modal-close" onclick="document.getElementById('export-ics-modal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body" id="export-ics-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="document.getElementById('export-ics-modal').style.display='none'">Avbryt</button>
+      <button class="btn btn-primary" onclick="doExportICS()">📥 Exportera</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ EKONOMI ═══ -->
+<div id="tab-ekonomi" style="display:none;">
+<div class="content" style="padding:16px 26px;">
+
+  <!-- Filters -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <div class="brand-bar" id="eko-brand-bar" style="margin-bottom:0;">
+      <button class="brand-btn all-active" data-brand="all" onclick="setEkoBrand('all',this)">Alla varumärken</button>
+      <button class="brand-btn" data-brand="Vd-tidningen" onclick="setEkoBrand('Vd-tidningen',this)">Vd-tidningen</button>
+      <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
+      <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
+      <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
+    </div>
+    <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomi()">
+      <option value="all">Alla år</option>
+      <option value="2026" selected>2026</option>
+      <option value="2027">2027</option>
+      <option value="2028">2028</option>
+    </select>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="eko-kpi" class="s-strip" style="margin-bottom:16px;"></div>
+
+  <!-- Year comparison chart -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <h2>📈 Resultat per år</h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="setEkoView('resultat',this)" id="eko-v-resultat" class="fbtn active" style="font-size:0.7rem;padding:3px 10px;">Resultat</button>
+        <button onclick="setEkoView('intakter',this)" id="eko-v-intakter" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Intäkter</button>
+        <button onclick="setEkoView('kostnader',this)" id="eko-v-kostnader" class="fbtn" style="font-size:0.7rem;padding:3px 10px;">Kostnader</button>
+      </div>
+    </div>
+    <div style="padding:16px;" id="eko-year-chart"></div>
+  </div>
+
+  <!-- Historik per event -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header" onclick="toggleEkoHistorik()" style="cursor:pointer;">
+      <h2>📊 Historik per event — år för år</h2>
+      <span id="eko-historik-arrow" style="font-size:0.65rem;transition:transform 0.2s;display:inline-block;">▾</span>
+    </div>
+    <div id="eko-historik-panel" style="display:none;padding:16px;" ></div>
+  </div>
+
+  <!-- Event list -->
+  <div id="eko-event-list"></div>
+
+</div>
+</div>
+
+
+<!-- ═══ UPPGIFTER ═══ -->
+<div id="tab-tasks" style="display:none;">
+<div class="content" style="padding:16px 26px 24px;">
+
+  <!-- Top bar -->
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+    <h2 style="font-size:1.05rem;font-weight:800;margin:0;">✅ Uppgifter</h2>
+    <select id="task-filter-cat" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
+      <option value="all">Alla kategorier</option>
+      <option value="Event">Event</option>
+      <option value="Pren">Prenumeration</option>
+    </select>
+    <select id="task-filter-brand" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
+      <option value="all">Alla varumärken</option>
+      <option value="Vd-tidningen">Vd-tidningen</option>
+      <option value="Kvalitetsmagasinet">Kvalitetsmagasinet</option>
+      <option value="Miljö & Utveckling">Miljö &amp; Utveckling</option>
+      <option value="Techtidningen">Techtidningen</option>
+    </select>
+    <select id="task-filter-ev" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
+      <option value="all">Alla event</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:0.75rem;color:var(--muted);cursor:pointer;">
+      <input type="checkbox" id="task-show-done" onchange="renderTasks()" style="accent-color:var(--accent);">
+      Visa avklarade
+    </label>
+    <div style="flex:1;"></div>
+    <button onclick="openAddTask()" style="font-size:0.78rem;padding:6px 16px;border-radius:8px;
+      background:var(--accent);border:none;color:#fff;cursor:pointer;font-weight:700;">+ Ny uppgift</button>
+  </div>
+
+  <!-- KPI strip -->
+  <div id="task-kpi" class="s-strip" style="margin-bottom:16px;"></div>
+
+  <!-- Kanban board -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start;">
+    <div id="col-hog"></div>
+    <div id="col-medel"></div>
+    <div id="col-lag"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ═══ TASK MODAL ═══ -->
+<div id="task-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:600;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:92%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 id="task-modal-title" style="font-size:1rem;font-weight:800;margin:0;">Ny uppgift</h3>
+      <button onclick="closeTaskModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Uppgift *</label>
+        <input id="tm-title" class="form-input" type="text" placeholder="Beskriv uppgiften..." maxlength="200">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">Prioritet</label>
+          <select id="tm-prio" class="form-select">
+            <option value="hog">🔴 Hög</option>
+            <option value="medel" selected>🟡 Medel</option>
+            <option value="lag">🟢 Låg</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kategori</label>
+          <select id="tm-cat" class="form-select">
+            <option value="Event">Event</option>
+            <option value="Pren">Prenumeration</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Varumärke (valfritt)</label>
+        <select id="tm-brand" class="form-select">
+          <option value="">— Inget varumärke —</option>
+          <option value="Vd-tidningen">Vd-tidningen</option>
+          <option value="Kvalitetsmagasinet">Kvalitetsmagasinet</option>
+          <option value="Miljö &amp; Utveckling">Miljö &amp; Utveckling</option>
+          <option value="Techtidningen">Techtidningen</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">Förfallodatum</label>
+          <input id="tm-due" class="form-input" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ansvarig</label>
+          <input id="tm-owner" class="form-input" type="text" placeholder="Namn">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kopplat event (valfritt)</label>
+        <select id="tm-event" class="form-select">
+          <option value="">— Inget event —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notering</label>
+        <textarea id="tm-note" class="note-area" rows="2" placeholder="Mer info..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
+        <button onclick="closeTaskModal()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Avbryt</button>
+        <button onclick="saveTask()" style="padding:8px 22px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-weight:700;">Spara</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 <script>const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxs6hU1ZkPojxrzuhp4SL3Gqs0u8d0kV-9-xsiE_W2YP1J6LRkfFfIU3JyCUEV4DMSw2w/exec';
 const PRIO = {
   high:   { label:'Hög',    color:'var(--red)',    bg:'rgba(255,107,107,0.12)', icon:'🔴' },
@@ -718,8 +957,10 @@ const FALLBACK_USERS = {
 
 let sheetUsers = null; // loaded from Google Sheets
 
+
+
 function isLoggedIn(){
-  return sessionStorage.getItem('ep_auth') === 'true';
+  return true; // Auto-inloggad för lokal testning
 }
 
 function loadUsersFromSheet(callback){
@@ -811,7 +1052,7 @@ function doLogin(){
 function checkAuth(){
   // Auto-login when running locally or in development
   const host = window.location.hostname;
-  if(window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
+  if(true || window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
     sessionStorage.setItem('ep_auth', 'true');
     sessionStorage.setItem('ep_user', 'admin');
     const ls=document.getElementById('login-screen'); if(ls) ls.style.display='none';
@@ -1094,7 +1335,7 @@ function toggleTask(evId, field, taskId){
   const t = list.find(t=>t.id===taskId);
   if(t){ t.done=!t.done; saveTasks(); }
 }
-function deleteTask(evId, field, taskId){
+function deleteTrackerTask(evId, field, taskId){
   if(!tasks[evId]?.[field]) return;
   tasks[evId][field] = tasks[evId][field].filter(t=>t.id!==taskId);
   saveTasks();
@@ -1323,17 +1564,18 @@ function yearOptions(selected) {
 
 // ── TABS ──────────────────────────────────────────────────────
 function showTab(t){
-  ['tracker','dashboard','calendar','details'].forEach(id=>{
+  ['tracker','dashboard','calendar','details','tasks'].forEach(id=>{
     const el=document.getElementById('tab-'+id);
     if(el) el.style.display=id===t?'':'none';
   });
   document.querySelectorAll('.tab').forEach((el,i)=>
-    el.classList.toggle('active',['dashboard','calendar','tracker','details'][i]===t)
+    el.classList.toggle('active',['dashboard','calendar','tracker','details','tasks'][i]===t)
   );
   if(t==='dashboard')renderDashboard();
   if(t==='calendar') renderCalendar();
   if(t==='tracker')  renderTracker();
   if(t==='details')  renderDetails();
+  if(t==='tasks')    renderTasks();
 
 }
 
@@ -2727,7 +2969,7 @@ function buildTasksModalContent(evId, field){
         <option value="medium" ${(t.priority||'medium')==='medium'?'selected':''}>🟡 Medium</option>
         <option value="low" ${(t.priority||'medium')==='low'?'selected':''}>🟢 Låg</option>
       </select>
-      <button class="task-del" onclick="deleteTask('${evId}','${field}','${t.id}');rerenderModalTasks('${evId}','${field}')" title="Ta bort">✕</button>
+      <button class="task-del" onclick="deleteTrackerTask('${evId}', '${field}', '${t.id}');rerenderModalTasks('${evId}','${field}')" title="Ta bort">✕</button>
     </div>`;
   }).join('');
   const done=list.filter(t=>t.done).length, high=list.filter(t=>!t.done&&t.priority==='high').length;
@@ -2760,7 +3002,7 @@ function buildInlineTaskList(evId, field){
         onclick="event.stopPropagation();toggleTask('${evId}','${field}','${t.id}');rerenderTaskList('${evId}','${field}')">${t.done?'✓':''}</div>
       <input class="task-text${t.done?' done-text':''}" value="${t.text.replace(/"/g,'&quot;')}"
         onchange="editTaskText('${evId}','${field}','${t.id}',this.value)" onclick="event.stopPropagation()">
-      <button class="task-del" onclick="event.stopPropagation();deleteTask('${evId}','${field}','${t.id}');rerenderTaskList('${evId}','${field}')" title="Ta bort">✕</button>
+      <button class="task-del" onclick="event.stopPropagation();deleteTrackerTask('${evId}', '${field}', '${t.id}');rerenderTaskList('${evId}','${field}')" title="Ta bort">✕</button>
     </div>`).join('');
   return `<div><div class="task-list">${rows}</div>
     <div class="task-add-row">
@@ -5714,258 +5956,308 @@ function exportBothXLSX(){
 
 // ── IMPORTERA LOKALINFO FRÅN CSV ───────────────────────────────
 function importCSVEventInfo(){
-  const CSV_INFO = [{"name": "LG-dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v5", "plats": "Globe", "lokaler": "Galaxen + Cosmos", "mat_bokad": "150", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-01-13", "fg_betalande": "275", "fg_utstallare": "5 (endast 1 betalande)", "fg_utstallare_pers": "36", "fg_slutanv": "305", "fg_totalt_anm": "374", "fg_totalt_plats": "334", "fg_noshow": "-10,70%", "chk_eventsida_date": "2025-11-20", "chk_jirango_date": "2025-11-27", "chk_kontakt1_date": "2025-12-04", "chk_kontakt2_date": "2025-12-18", "chk_lokal_date": "2025-12-18", "chk_mat_date": "2026-01-16"}}, {"name": "FLD digital workshop (TEAMS)*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "lokaler": "Digital workshop.", "chk_jirango_date": "2025-12-03", "chk_kontakt1_date": "2025-12-10"}}, {"name": "HSB", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v.10", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser) Styrelserummet (50 platser) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum)", "workshop": "nej", "mat_bokad": "115", "mat_avbokning": "02-feb", "mat_veg": "veg", "mat_specialkost_deadline": "2026-02-25", "talargaster": "5 per talare", "prisutdelning": "nej inget pris", "fg_betalande": "114", "fg_utstallare": "4", "fg_utstallare_pers": "10", "fg_slutanv": "122", "fg_totalt_anm": "170", "fg_totalt_plats": "155", "fg_noshow": "-8,82%", "chk_eventsida_date": "2025-12-24", "chk_jirango_date": "2025-12-31", "chk_kontakt1_date": "2026-01-07", "chk_kontakt2_date": "2026-01-21", "chk_lokal_date": "2026-01-21", "chk_mat_date": "2026-01-31"}}, {"name": "K-Vård*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "talargaster": "5 per talare"}}, {"name": "Vd - Personal och ledarskap*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v16", "plats": "PM-studio", "talargaster": "två per talare", "sponsrade_sparval": "huvudsponsor med logga", "chk_jirango_date": "2026-02-11", "chk_kontakt1_date": "2026-02-18"}}, {"name": "VD-utbildning", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Citykonferensen", "lokaler": "Datorgrafiken 55kvm plats för 30 pers i öar https://www.citykonferensen.se/konferens/datorgrafiken/", "mat_bokad": "10", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "chk_jirango_date": "Rule", "chk_kontakt1_date": "2026-02-26", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-03-22"}}, {"name": "Connect", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Globe", "lokaler": "4 stycken spårval (Galaxen 1&2, Cosmos 214) Cosmos huvudrum och ha Galaxen som spårval", "mat_bokad": "150", "mat_avbokning": "22-feb", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "sponsrade_panel": "Hisspitch", "fg_betalande": "167", "fg_utstallare": "11", "fg_utstallare_pers": "46", "fg_slutanv": "93", "fg_totalt_anm": "254", "fg_totalt_plats": "227", "fg_noshow": "-10,63%", "chk_eventsida_date": "2026-02-12", "chk_jirango_date": "2026-02-19", "chk_kontakt1_date": "2026-02-26", "chk_kontakt2_date": "2026-03-12", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-04-24"}}, {"name": "KML", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v19", "plats": "7A Odenplan", "lokaler": "Loke (350), Loke lounge, Tor 1 (80), Tor lounge, Tor 2 (60 bio), Loke 1, Loke 2\nDag 2: Tor 1 +Tor lounge", "workshop": "07-maj", "workshop_antal": "Tor 1: 54 pers i öar", "mat_bokad": "150", "mat_avbokning": "06-apr", "mat_veg": "veg", "mat_specialkost_deadline": "2026-04-24", "workshop_mat": "25", "talargaster": "1 per talare", "sponsrade_sparval": "Ja", "mingel": "mingel som vanligt", "prisutdelning": "Årets kvalitetsprofil - statyett som vanligt (stämpel)", "fg_betalande": "98", "fg_utstallare": "8", "fg_utstallare_pers": "28", "fg_slutanv": "101", "fg_totalt_anm": "173", "fg_totalt_plats": "154", "fg_noshow": "-10,98%", "chk_eventsida_date": "2026-02-25", "chk_jirango_date": "2026-03-04", "chk_kontakt1_date": "2026-03-11", "chk_kontakt2_date": "2026-03-25", "chk_lokal_date": "2026-03-25"}}, {"name": "(HIP) Hållbarhet i parktiken + workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v21", "plats": "Globe", "lokaler": "Cosmos (214), Saturnus (50), Pluto (60) + foajén plan 3. Dag 2 workshop: Jupiter (50 i bio - 36 i öar)", "workshop": "21-maj", "workshop_antal": "Jupiter: 36 personeri öar", "mat_bokad": "130", "mat_avbokning": "21-mar", "mat_veg": "veg", "mat_specialkost_deadline": "2026-05-08", "workshop_mat": "15", "partnerpaket": "3 premium, \n1 vip-rukost, \n1 pre-webinar\n3 soponsrat spårval", "sponsrade_sparval": "Ja 2x30 minuter + 1st 40 minuter", "mingel": "mingel som vanligt", "prisutdelning": "Bästa Hållbarhetsprestationen år 2026 - diplom och blommor. EJ statyett", "fg_betalande": "211", "fg_utstallare": "16", "fg_utstallare_pers": "52", "fg_slutanv": "222", "fg_totalt_anm": "320", "fg_totalt_plats": "277", "fg_noshow": "-13,44%", "chk_eventsida_date": "2026-03-11", "chk_jirango_date": "2026-03-18", "chk_kontakt1_date": "2026-03-25", "chk_kontakt2_date": "2026-04-08", "chk_lokal_date": "2026-04-08", "chk_mat_date": "2026-05-08"}}, {"name": "FLD LIVE", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v38", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser), Styrelserummet (möblerat i öar 25 pers finns plast för 50 i bio) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum) \nDAG 2: Datorgrafiken 36 pers i öar", "workshop": "17-sep", "workshop_antal": "Datorgrafiken: 36 i öar", "ovrig_info": "0 utställare beräknas, men det finns utrymme om det säljs", "mat_bokad": "80", "mat_veg": "Veg", "mat_specialkost_deadline": "2026-09-07", "workshop_mat": "15", "chk_eventsida_date": "2026-07-08", "chk_jirango_date": "2026-07-15", "chk_kontakt1_date": "2026-07-22", "chk_kontakt2_date": "2026-08-05", "chk_lokal_date": "2026-08-05", "chk_mat_date": "2026-08-15"}}, {"name": "VD- dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v40", "plats": "Grand", "lokaler": "Vinterträdgården (600) inklusive Royals festvåning (50-100), Oscarssalongen (60), Kinarummet (30 - CREW rum) Lunch: Spegelsalen (300) inklusive Vapensalen (100), Strömsalongerna-Scholanderska rummet inklusive New York (95)", "ovrig_info": "Det ska vara 3 spårval!", "mat_bokad": "250", "mat_veg": "tre rätters", "mat_specialkost_deadline": "2026-09-14", "partnerpaket": "5 premium med panelsamtal", "sponsrade_panel": "Panelsamtal 5 på scen", "prisutdelning": "Det stora VD-priset, statyett", "fg_betalande": "115", "chk_eventsida_date": "2026-07-22", "chk_jirango_date": "2026-07-29", "chk_kontakt1_date": "2026-08-05", "chk_kontakt2_date": "2026-08-19", "chk_lokal_date": "2026-08-19", "chk_mat_date": "Menyval 4 v. innan"}}, {"name": "K-Vård", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio"}}, {"name": "MSD + workshop dag 2", "year": 2026, "info": {"upplag": "Fysik", "vecka": "v42", "plats": "Globe", "lokaler": "3 spårval.\nDag 1: Galaxen, Cosmos \nDag 2 WS: Pluto", "workshop": "16-okt", "workshop_antal": "Pluto: 36 pers i öar", "mat_bokad": "150", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-03", "workshop_mat": "20", "prisutdelning": "Miljöstrategipriset 2026 statyett", "chk_eventsida_date": "2026-08-06", "chk_jirango_date": "2026-08-13", "chk_kontakt1_date": "2026-08-20", "chk_kontakt2_date": "2026-09-03", "chk_lokal_date": "2026-09-03"}}, {"name": "VD-dagen SYD i Lund", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v43", "plats": "Lund - Grand Hotel", "lokaler": "1 huvudlokal och 2 extra lokal ( 3 spårval) \n\"Piratensalen (136+10, 146 stolar) \nPiratenfoajén 8 utställare, \nSten Broman salen 80 platser bio, \nLukas sal 70platser bio\"", "ovrig_info": "OBS! Boka tekniker med switch till Piraten. Övriga lokaler behöver ej tekniker.", "mat_bokad": "75", "mat_veg": "tre rätters", "partnerpaket": "hisspitch", "chk_eventsida_date": "2026-08-13", "chk_jirango_date": "2026-08-20", "chk_kontakt1_date": "2026-08-27", "chk_kontakt2_date": "2026-09-10", "chk_lokal_date": "2026-09-10"}}, {"name": "KML + 1 workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v45", "plats": "Citykonferensen", "lokaler": "Dag 1: Polhemssalen (200 pers), Celciussalen (100 pers), Galleriet, Kullagret, Kyskåpet, Styrelserummet (50 pers)\nDag 2: Datorgrafiken (40 i bio eller 36 i öar)", "workshop": "05-nov", "workshop_antal": "Datorgrafiken: 36 pers", "mat_bokad": "80", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-26", "workshop_mat": "15", "sponsrade_panel": "ja panel - ej hisspitch", "sponsrade_sparval": "nej", "prisutdelning": "inget pris", "chk_eventsida_date": "2026-08-26", "chk_jirango_date": "2026-09-02", "chk_kontakt1_date": "2026-09-09", "chk_kontakt2_date": "2026-09-23", "chk_lokal_date": "2026-09-23", "chk_mat_date": "2026-10-03"}}, {"name": "MU-Fokus*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v46", "plats": "PM-studio", "chk_jirango_date": "2026-09-10", "chk_kontakt1_date": "2026-09-17", "chk_kontakt2_date": "2026-10-01"}}, {"name": "Connect x2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v49", "plats": "Globe", "lokaler": "4 rum totalt för spårval\nStjärnrummet (2 rum) 270 i bio, Cosmos 214 bio, Pluto 61 bio.\nAll mat serveras i Galaxen, alla utställare i Galaxen", "mat_bokad": "150", "mat_avbokning": "2026-10-03", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-11-18", "sponsrade_panel": "Hisspitch", "chk_eventsida_date": "2026-09-23", "chk_jirango_date": "2026-09-30", "chk_kontakt1_date": "2026-10-07", "chk_kontakt2_date": "2026-10-21", "chk_lokal_date": "2026-10-21", "chk_mat_date": "2027-02-02"}}];
+  var CSV_INFO = [{"name": "LG-dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v5", "plats": "Globe", "lokaler": "Galaxen + Cosmos", "mat_bokad": "150", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-01-13", "fg_betalande": "275", "fg_utstallare": "5 (endast 1 betalande)", "fg_utstallare_pers": "36", "fg_slutanv": "305", "fg_totalt_anm": "374", "fg_totalt_plats": "334", "fg_noshow": "-10,70%", "chk_eventsida_date": "2025-11-20", "chk_jirango_date": "2025-11-27", "chk_kontakt1_date": "2025-12-04", "chk_kontakt2_date": "2025-12-18", "chk_lokal_date": "2025-12-18", "chk_mat_date": "2026-01-16"}}, {"name": "FLD digital workshop (TEAMS)*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "lokaler": "Digital workshop.", "chk_jirango_date": "2025-12-03", "chk_kontakt1_date": "2025-12-10"}, "match_name": "FLD digital"}, {"name": "HSB", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v.10", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser) Styrelserummet (50 platser) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum)", "workshop": "nej", "mat_bokad": "115", "mat_avbokning": "02-feb", "mat_veg": "veg", "mat_specialkost_deadline": "2026-02-25", "talargaster": "5 per talare", "prisutdelning": "nej inget pris", "fg_betalande": "114", "fg_utstallare": "4", "fg_utstallare_pers": "10", "fg_slutanv": "122", "fg_totalt_anm": "170", "fg_totalt_plats": "155", "fg_noshow": "-8,82%", "chk_eventsida_date": "2025-12-24", "chk_jirango_date": "2025-12-31", "chk_kontakt1_date": "2026-01-07", "chk_kontakt2_date": "2026-01-21", "chk_lokal_date": "2026-01-21", "chk_mat_date": "2026-01-31"}}, {"name": "K-Vård*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "talargaster": "5 per talare"}}, {"name": "Vd - Personal och ledarskap*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v16", "plats": "PM-studio", "talargaster": "två per talare", "sponsrade_sparval": "huvudsponsor med logga", "chk_jirango_date": "2026-02-11", "chk_kontakt1_date": "2026-02-18"}}, {"name": "VD-utbildning", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Citykonferensen", "lokaler": "Datorgrafiken 55kvm plats för 30 pers i öar https://www.citykonferensen.se/konferens/datorgrafiken/", "mat_bokad": "10", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "chk_jirango_date": "Rule", "chk_kontakt1_date": "2026-02-26", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-03-22"}, "skip": true}, {"name": "Connect", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Globe", "lokaler": "4 stycken spårval (Galaxen 1&2, Cosmos 214) Cosmos huvudrum och ha Galaxen som spårval", "mat_bokad": "150", "mat_avbokning": "22-feb", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "sponsrade_panel": "Hisspitch", "fg_betalande": "167", "fg_utstallare": "11", "fg_utstallare_pers": "46", "fg_slutanv": "93", "fg_totalt_anm": "254", "fg_totalt_plats": "227", "fg_noshow": "-10,63%", "chk_eventsida_date": "2026-02-12", "chk_jirango_date": "2026-02-19", "chk_kontakt1_date": "2026-02-26", "chk_kontakt2_date": "2026-03-12", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-04-24"}}, {"name": "KML", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v19", "plats": "7A Odenplan", "lokaler": "Loke (350), Loke lounge, Tor 1 (80), Tor lounge, Tor 2 (60 bio), Loke 1, Loke 2\nDag 2: Tor 1 +Tor lounge", "workshop": "07-maj", "workshop_antal": "Tor 1: 54 pers i öar", "mat_bokad": "150", "mat_avbokning": "06-apr", "mat_veg": "veg", "mat_specialkost_deadline": "2026-04-24", "workshop_mat": "25", "talargaster": "1 per talare", "sponsrade_sparval": "Ja", "mingel": "mingel som vanligt", "prisutdelning": "Årets kvalitetsprofil - statyett som vanligt (stämpel)", "fg_betalande": "98", "fg_utstallare": "8", "fg_utstallare_pers": "28", "fg_slutanv": "101", "fg_totalt_anm": "173", "fg_totalt_plats": "154", "fg_noshow": "-10,98%", "chk_eventsida_date": "2026-02-25", "chk_jirango_date": "2026-03-04", "chk_kontakt1_date": "2026-03-11", "chk_kontakt2_date": "2026-03-25", "chk_lokal_date": "2026-03-25"}, "match_name": "KM Live"}, {"name": "(HIP) Hållbarhet i parktiken + workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v21", "plats": "Globe", "lokaler": "Cosmos (214), Saturnus (50), Pluto (60) + foajén plan 3. Dag 2 workshop: Jupiter (50 i bio - 36 i öar)", "workshop": "21-maj", "workshop_antal": "Jupiter: 36 personeri öar", "mat_bokad": "130", "mat_avbokning": "21-mar", "mat_veg": "veg", "mat_specialkost_deadline": "2026-05-08", "workshop_mat": "15", "partnerpaket": "3 premium, \n1 vip-rukost, \n1 pre-webinar\n3 soponsrat spårval", "sponsrade_sparval": "Ja 2x30 minuter + 1st 40 minuter", "mingel": "mingel som vanligt", "prisutdelning": "Bästa Hållbarhetsprestationen år 2026 - diplom och blommor. EJ statyett", "fg_betalande": "211", "fg_utstallare": "16", "fg_utstallare_pers": "52", "fg_slutanv": "222", "fg_totalt_anm": "320", "fg_totalt_plats": "277", "fg_noshow": "-13,44%", "chk_eventsida_date": "2026-03-11", "chk_jirango_date": "2026-03-18", "chk_kontakt1_date": "2026-03-25", "chk_kontakt2_date": "2026-04-08", "chk_lokal_date": "2026-04-08", "chk_mat_date": "2026-05-08"}, "match_name": "Hållbarhet i praktiken"}, {"name": "FLD LIVE", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v38", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser), Styrelserummet (möblerat i öar 25 pers finns plast för 50 i bio) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum) \nDAG 2: Datorgrafiken 36 pers i öar", "workshop": "17-sep", "workshop_antal": "Datorgrafiken: 36 i öar", "ovrig_info": "0 utställare beräknas, men det finns utrymme om det säljs", "mat_bokad": "80", "mat_veg": "Veg", "mat_specialkost_deadline": "2026-09-07", "workshop_mat": "15", "chk_eventsida_date": "2026-07-08", "chk_jirango_date": "2026-07-15", "chk_kontakt1_date": "2026-07-22", "chk_kontakt2_date": "2026-08-05", "chk_lokal_date": "2026-08-05", "chk_mat_date": "2026-08-15"}}, {"name": "VD- dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v40", "plats": "Grand", "lokaler": "Vinterträdgården (600) inklusive Royals festvåning (50-100), Oscarssalongen (60), Kinarummet (30 - CREW rum) Lunch: Spegelsalen (300) inklusive Vapensalen (100), Strömsalongerna-Scholanderska rummet inklusive New York (95)", "ovrig_info": "Det ska vara 3 spårval!", "mat_bokad": "250", "mat_veg": "tre rätters", "mat_specialkost_deadline": "2026-09-14", "partnerpaket": "5 premium med panelsamtal", "sponsrade_panel": "Panelsamtal 5 på scen", "prisutdelning": "Det stora VD-priset, statyett", "fg_betalande": "115", "chk_eventsida_date": "2026-07-22", "chk_jirango_date": "2026-07-29", "chk_kontakt1_date": "2026-08-05", "chk_kontakt2_date": "2026-08-19", "chk_lokal_date": "2026-08-19", "chk_mat_date": "Menyval 4 v. innan"}, "match_name": "Vd-dagen"}, {"name": "K-Vård", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio"}}, {"name": "MSD + workshop dag 2", "year": 2026, "info": {"upplag": "Fysik", "vecka": "v42", "plats": "Globe", "lokaler": "3 spårval.\nDag 1: Galaxen, Cosmos \nDag 2 WS: Pluto", "workshop": "16-okt", "workshop_antal": "Pluto: 36 pers i öar", "mat_bokad": "150", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-03", "workshop_mat": "20", "prisutdelning": "Miljöstrategipriset 2026 statyett", "chk_eventsida_date": "2026-08-06", "chk_jirango_date": "2026-08-13", "chk_kontakt1_date": "2026-08-20", "chk_kontakt2_date": "2026-09-03", "chk_lokal_date": "2026-09-03"}}, {"name": "VD-dagen SYD i Lund", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v43", "plats": "Lund - Grand Hotel", "lokaler": "1 huvudlokal och 2 extra lokal ( 3 spårval) \n\"Piratensalen (136+10, 146 stolar) \nPiratenfoajén 8 utställare, \nSten Broman salen 80 platser bio, \nLukas sal 70platser bio\"", "ovrig_info": "OBS! Boka tekniker med switch till Piraten. Övriga lokaler behöver ej tekniker.", "mat_bokad": "75", "mat_veg": "tre rätters", "partnerpaket": "hisspitch", "chk_eventsida_date": "2026-08-13", "chk_jirango_date": "2026-08-20", "chk_kontakt1_date": "2026-08-27", "chk_kontakt2_date": "2026-09-10", "chk_lokal_date": "2026-09-10"}}, {"name": "KML + 1 workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v45", "plats": "Citykonferensen", "lokaler": "Dag 1: Polhemssalen (200 pers), Celciussalen (100 pers), Galleriet, Kullagret, Kyskåpet, Styrelserummet (50 pers)\nDag 2: Datorgrafiken (40 i bio eller 36 i öar)", "workshop": "05-nov", "workshop_antal": "Datorgrafiken: 36 pers", "mat_bokad": "80", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-26", "workshop_mat": "15", "sponsrade_panel": "ja panel - ej hisspitch", "sponsrade_sparval": "nej", "prisutdelning": "inget pris", "chk_eventsida_date": "2026-08-26", "chk_jirango_date": "2026-09-02", "chk_kontakt1_date": "2026-09-09", "chk_kontakt2_date": "2026-09-23", "chk_lokal_date": "2026-09-23", "chk_mat_date": "2026-10-03"}, "match_name": "KM Live"}, {"name": "MU-Fokus*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v46", "plats": "PM-studio", "chk_jirango_date": "2026-09-10", "chk_kontakt1_date": "2026-09-17", "chk_kontakt2_date": "2026-10-01"}}, {"name": "Connect x2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v49", "plats": "Globe", "lokaler": "4 rum totalt för spårval\nStjärnrummet (2 rum) 270 i bio, Cosmos 214 bio, Pluto 61 bio.\nAll mat serveras i Galaxen, alla utställare i Galaxen", "mat_bokad": "150", "mat_avbokning": "2026-10-03", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-11-18", "sponsrade_panel": "Hisspitch", "chk_eventsida_date": "2026-09-23", "chk_jirango_date": "2026-09-30", "chk_kontakt1_date": "2026-10-07", "chk_kontakt2_date": "2026-10-21", "chk_lokal_date": "2026-10-21", "chk_mat_date": "2027-02-02"}}];
 
-  function normName(s){
-    return s.toLowerCase().trim().replace(/[*()]/g,'').replace(/\s+/g,' ');
+  function norm(s){
+    return s.toLowerCase().replace(/[*()\.\-]/g,' ').replace(/\s+/g,' ').trim();
+  }
+  var SKIP = ['och','dag','live','plus','workshop','digital','i','för','med','x2','x','1','2','3'];
+  function keywords(s){
+    return norm(s).split(' ').filter(function(w){ return w.length>=3 && SKIP.indexOf(w)===-1; });
+  }
+  function matchScore(a, b){
+    var ak=keywords(a), bk=keywords(b);
+    if(!ak.length||!bk.length) return 0;
+    var hits=ak.filter(function(w){ return bk.some(function(e){ return e.indexOf(w)>=0||w.indexOf(e)>=0; }); }).length;
+    return hits/Math.max(ak.length,bk.length);
   }
 
-  let matched = 0, skipped = 0;
+  var matched=0, skipped=0, skippedNames=[];
 
   CSV_INFO.forEach(function(row){
-    // Find matching event in dashboard
-    const csvNorm = normName(row.name);
-    const ev = events.find(function(e){
-      return e.year == row.year && normName(getName(e)).includes(csvNorm.substring(0,8));
-    }) || events.find(function(e){
-      // Fallback: partial match on first word
-      const firstWord = csvNorm.split(' ')[0];
-      return e.year == row.year && normName(getName(e)).startsWith(firstWord);
-    });
+    if(row.skip) return;
 
-    if(!ev){ skipped++; return; }
-
-    // Merge info — only fill empty fields, don't overwrite existing
-    const existing = getEventInfo(ev.id);
-    let changed = false;
-    Object.keys(row.info).forEach(function(key){
-      if(!existing[key] && row.info[key]){
-        existing[key] = row.info[key];
-        changed = true;
-      }
-    });
-    if(changed){
-      saveEventInfo(ev.id, existing);
-      matched++;
-    }
-  });
-
-  alert('✅ Lokalinfo importerad!\n\n' + matched + ' event uppdaterade\n' + skipped + ' matchade ej (kontrollera eventnamn)');
-  if(document.getElementById('tab-details').style.display !== 'none') renderDetails();
-}
-
-// ── IMPORTERA LOKALINFO FRÅN CSV ───────────────────────────────
-function importCSVEventInfo(){
-  var CSV_INFO = [{"name": "LG-dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v5", "plats": "Globe", "lokaler": "Galaxen + Cosmos", "mat_bokad": "150", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-01-13", "fg_betalande": "275", "fg_utstallare": "5 (endast 1 betalande)", "fg_utstallare_pers": "36", "fg_slutanv": "305", "fg_totalt_anm": "374", "fg_totalt_plats": "334", "fg_noshow": "-10,70%", "chk_eventsida_date": "2025-11-20", "chk_jirango_date": "2025-11-27", "chk_kontakt1_date": "2025-12-04", "chk_kontakt2_date": "2025-12-18", "chk_lokal_date": "2025-12-18", "chk_mat_date": "2026-01-16"}}, {"name": "FLD digital workshop (TEAMS)*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "lokaler": "Digital workshop.", "chk_jirango_date": "2025-12-03", "chk_kontakt1_date": "2025-12-10"}}, {"name": "HSB", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v.10", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser) Styrelserummet (50 platser) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum)", "workshop": "nej", "mat_bokad": "115", "mat_avbokning": "02-feb", "mat_veg": "veg", "mat_specialkost_deadline": "2026-02-25", "talargaster": "5 per talare", "prisutdelning": "nej inget pris", "fg_betalande": "114", "fg_utstallare": "4", "fg_utstallare_pers": "10", "fg_slutanv": "122", "fg_totalt_anm": "170", "fg_totalt_plats": "155", "fg_noshow": "-8,82%", "chk_eventsida_date": "2025-12-24", "chk_jirango_date": "2025-12-31", "chk_kontakt1_date": "2026-01-07", "chk_kontakt2_date": "2026-01-21", "chk_lokal_date": "2026-01-21", "chk_mat_date": "2026-01-31"}}, {"name": "K-Vård*", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio", "talargaster": "5 per talare"}}, {"name": "Vd - Personal och ledarskap*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v16", "plats": "PM-studio", "talargaster": "två per talare", "sponsrade_sparval": "huvudsponsor med logga", "chk_jirango_date": "2026-02-11", "chk_kontakt1_date": "2026-02-18"}}, {"name": "VD-utbildning", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Citykonferensen", "lokaler": "Datorgrafiken 55kvm plats för 30 pers i öar https://www.citykonferensen.se/konferens/datorgrafiken/", "mat_bokad": "10", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "chk_jirango_date": "Rule", "chk_kontakt1_date": "2026-02-26", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-03-22"}}, {"name": "Connect", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v17", "plats": "Globe", "lokaler": "4 stycken spårval (Galaxen 1&2, Cosmos 214) Cosmos huvudrum och ha Galaxen som spårval", "mat_bokad": "150", "mat_avbokning": "22-feb", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-04-11", "sponsrade_panel": "Hisspitch", "fg_betalande": "167", "fg_utstallare": "11", "fg_utstallare_pers": "46", "fg_slutanv": "93", "fg_totalt_anm": "254", "fg_totalt_plats": "227", "fg_noshow": "-10,63%", "chk_eventsida_date": "2026-02-12", "chk_jirango_date": "2026-02-19", "chk_kontakt1_date": "2026-02-26", "chk_kontakt2_date": "2026-03-12", "chk_lokal_date": "2026-03-12", "chk_mat_date": "2026-04-24"}}, {"name": "KML", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v19", "plats": "7A Odenplan", "lokaler": "Loke (350), Loke lounge, Tor 1 (80), Tor lounge, Tor 2 (60 bio), Loke 1, Loke 2\nDag 2: Tor 1 +Tor lounge", "workshop": "07-maj", "workshop_antal": "Tor 1: 54 pers i öar", "mat_bokad": "150", "mat_avbokning": "06-apr", "mat_veg": "veg", "mat_specialkost_deadline": "2026-04-24", "workshop_mat": "25", "talargaster": "1 per talare", "sponsrade_sparval": "Ja", "mingel": "mingel som vanligt", "prisutdelning": "Årets kvalitetsprofil - statyett som vanligt (stämpel)", "fg_betalande": "98", "fg_utstallare": "8", "fg_utstallare_pers": "28", "fg_slutanv": "101", "fg_totalt_anm": "173", "fg_totalt_plats": "154", "fg_noshow": "-10,98%", "chk_eventsida_date": "2026-02-25", "chk_jirango_date": "2026-03-04", "chk_kontakt1_date": "2026-03-11", "chk_kontakt2_date": "2026-03-25", "chk_lokal_date": "2026-03-25"}}, {"name": "(HIP) Hållbarhet i parktiken + workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v21", "plats": "Globe", "lokaler": "Cosmos (214), Saturnus (50), Pluto (60) + foajén plan 3. Dag 2 workshop: Jupiter (50 i bio - 36 i öar)", "workshop": "21-maj", "workshop_antal": "Jupiter: 36 personeri öar", "mat_bokad": "130", "mat_avbokning": "21-mar", "mat_veg": "veg", "mat_specialkost_deadline": "2026-05-08", "workshop_mat": "15", "partnerpaket": "3 premium, \n1 vip-rukost, \n1 pre-webinar\n3 soponsrat spårval", "sponsrade_sparval": "Ja 2x30 minuter + 1st 40 minuter", "mingel": "mingel som vanligt", "prisutdelning": "Bästa Hållbarhetsprestationen år 2026 - diplom och blommor. EJ statyett", "fg_betalande": "211", "fg_utstallare": "16", "fg_utstallare_pers": "52", "fg_slutanv": "222", "fg_totalt_anm": "320", "fg_totalt_plats": "277", "fg_noshow": "-13,44%", "chk_eventsida_date": "2026-03-11", "chk_jirango_date": "2026-03-18", "chk_kontakt1_date": "2026-03-25", "chk_kontakt2_date": "2026-04-08", "chk_lokal_date": "2026-04-08", "chk_mat_date": "2026-05-08"}}, {"name": "FLD LIVE", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v38", "plats": "City konf.", "lokaler": "Polhelmssalen (200 platser)  , Celsiussalen (100 platser), Styrelserummet (möblerat i öar 25 pers finns plast för 50 i bio) \nGalleriet (utställare ca 7-10) \n(Kylskåpet 12-platser fast möblering och Kullagret 11-platser fast möblering PM-personal rum) \nDAG 2: Datorgrafiken 36 pers i öar", "workshop": "17-sep", "workshop_antal": "Datorgrafiken: 36 i öar", "ovrig_info": "0 utställare beräknas, men det finns utrymme om det säljs", "mat_bokad": "80", "mat_veg": "Veg", "mat_specialkost_deadline": "2026-09-07", "workshop_mat": "15", "chk_eventsida_date": "2026-07-08", "chk_jirango_date": "2026-07-15", "chk_kontakt1_date": "2026-07-22", "chk_kontakt2_date": "2026-08-05", "chk_lokal_date": "2026-08-05", "chk_mat_date": "2026-08-15"}}, {"name": "VD- dagen", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v40", "plats": "Grand", "lokaler": "Vinterträdgården (600) inklusive Royals festvåning (50-100), Oscarssalongen (60), Kinarummet (30 - CREW rum) Lunch: Spegelsalen (300) inklusive Vapensalen (100), Strömsalongerna-Scholanderska rummet inklusive New York (95)", "ovrig_info": "Det ska vara 3 spårval!", "mat_bokad": "250", "mat_veg": "tre rätters", "mat_specialkost_deadline": "2026-09-14", "partnerpaket": "5 premium med panelsamtal", "sponsrade_panel": "Panelsamtal 5 på scen", "prisutdelning": "Det stora VD-priset, statyett", "fg_betalande": "115", "chk_eventsida_date": "2026-07-22", "chk_jirango_date": "2026-07-29", "chk_kontakt1_date": "2026-08-05", "chk_kontakt2_date": "2026-08-19", "chk_lokal_date": "2026-08-19", "chk_mat_date": "Menyval 4 v. innan"}}, {"name": "K-Vård", "year": 2026, "info": {"upplag": "Digital*", "plats": "PM-studio"}}, {"name": "MSD + workshop dag 2", "year": 2026, "info": {"upplag": "Fysik", "vecka": "v42", "plats": "Globe", "lokaler": "3 spårval.\nDag 1: Galaxen, Cosmos \nDag 2 WS: Pluto", "workshop": "16-okt", "workshop_antal": "Pluto: 36 pers i öar", "mat_bokad": "150", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-03", "workshop_mat": "20", "prisutdelning": "Miljöstrategipriset 2026 statyett", "chk_eventsida_date": "2026-08-06", "chk_jirango_date": "2026-08-13", "chk_kontakt1_date": "2026-08-20", "chk_kontakt2_date": "2026-09-03", "chk_lokal_date": "2026-09-03"}}, {"name": "VD-dagen SYD i Lund", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v43", "plats": "Lund - Grand Hotel", "lokaler": "1 huvudlokal och 2 extra lokal ( 3 spårval) \n\"Piratensalen (136+10, 146 stolar) \nPiratenfoajén 8 utställare, \nSten Broman salen 80 platser bio, \nLukas sal 70platser bio\"", "ovrig_info": "OBS! Boka tekniker med switch till Piraten. Övriga lokaler behöver ej tekniker.", "mat_bokad": "75", "mat_veg": "tre rätters", "partnerpaket": "hisspitch", "chk_eventsida_date": "2026-08-13", "chk_jirango_date": "2026-08-20", "chk_kontakt1_date": "2026-08-27", "chk_kontakt2_date": "2026-09-10", "chk_lokal_date": "2026-09-10"}}, {"name": "KML + 1 workshop dag 2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v45", "plats": "Citykonferensen", "lokaler": "Dag 1: Polhemssalen (200 pers), Celciussalen (100 pers), Galleriet, Kullagret, Kyskåpet, Styrelserummet (50 pers)\nDag 2: Datorgrafiken (40 i bio eller 36 i öar)", "workshop": "05-nov", "workshop_antal": "Datorgrafiken: 36 pers", "mat_bokad": "80", "mat_veg": "veg", "mat_specialkost_deadline": "2026-10-26", "workshop_mat": "15", "sponsrade_panel": "ja panel - ej hisspitch", "sponsrade_sparval": "nej", "prisutdelning": "inget pris", "chk_eventsida_date": "2026-08-26", "chk_jirango_date": "2026-09-02", "chk_kontakt1_date": "2026-09-09", "chk_kontakt2_date": "2026-09-23", "chk_lokal_date": "2026-09-23", "chk_mat_date": "2026-10-03"}}, {"name": "MU-Fokus*", "year": 2026, "info": {"upplag": "Digital*", "vecka": "v46", "plats": "PM-studio", "chk_jirango_date": "2026-09-10", "chk_kontakt1_date": "2026-09-17", "chk_kontakt2_date": "2026-10-01"}}, {"name": "Connect x2", "year": 2026, "info": {"upplag": "Fysisk", "vecka": "v49", "plats": "Globe", "lokaler": "4 rum totalt för spårval\nStjärnrummet (2 rum) 270 i bio, Cosmos 214 bio, Pluto 61 bio.\nAll mat serveras i Galaxen, alla utställare i Galaxen", "mat_bokad": "150", "mat_avbokning": "2026-10-03", "mat_veg": "ej veg", "mat_specialkost_deadline": "2026-11-18", "sponsrade_panel": "Hisspitch", "chk_eventsida_date": "2026-09-23", "chk_jirango_date": "2026-09-30", "chk_kontakt1_date": "2026-10-07", "chk_kontakt2_date": "2026-10-21", "chk_lokal_date": "2026-10-21", "chk_mat_date": "2027-02-02"}}];
-
-  function normName(s){
-    return s.toLowerCase().trim().replace(/[*()]/g,'').replace(/\s+/g,' ');
-  }
-
-  var matched = 0, skipped = 0, skippedNames = [];
-
-  CSV_INFO.forEach(function(row){
-    var csvNorm = normName(row.name);
-    var csvWords = csvNorm.split(' ');
     var ev = null;
 
-    // Try progressively shorter prefix matches
-    for(var len = csvWords.length; len >= 1 && !ev; len--){
-      var prefix = csvWords.slice(0, len).join(' ');
+    // Use explicit match_name if provided
+    if(row.match_name){
       ev = events.find(function(e){
-        return e.year == row.year && normName(getName(e)).indexOf(prefix) === 0;
+        return e.year==row.year && norm(getName(e))===norm(row.match_name);
       });
     }
-    // Also try if csv name contains the event name
+
+    // Fallback: keyword matching
     if(!ev){
-      ev = events.find(function(e){
-        var evNorm = normName(getName(e));
-        return e.year == row.year && csvNorm.indexOf(evNorm.split(' ')[0]) >= 0;
+      var best=null, bestScore=0;
+      events.filter(function(e){ return e.year==row.year; }).forEach(function(e){
+        var s=matchScore(row.name, getName(e));
+        if(s>bestScore){ bestScore=s; best=e; }
       });
+      if(best && bestScore>=0.5) ev=best;
     }
 
     if(!ev){ skipped++; skippedNames.push(row.name); return; }
 
-    var existing = getEventInfo(ev.id);
-    var changed = false;
+    var existing=getEventInfo(ev.id);
+    var changed=false;
     Object.keys(row.info).forEach(function(key){
-      if(row.info[key] && !existing[key]){
-        existing[key] = row.info[key];
-        changed = true;
-      }
+      if(row.info[key]!==''&&!existing[key]){ existing[key]=row.info[key]; changed=true; }
     });
     if(changed){ saveEventInfo(ev.id, existing); matched++; }
   });
 
-  var msg = '✅ Lokalinfo importerad!\n\n' + matched + ' event uppdaterade';
-  if(skipped) msg += '\n' + skipped + ' matchade ej:\n' + skippedNames.join('\n');
+  var msg='✅ Lokalinfo importerad!\n\n'+matched+' event uppdaterade';
+  if(skipped) msg+='\n\n'+skipped+' matchade ej:\n'+skippedNames.join('\n');
   alert(msg);
   renderDetails();
 }
+
+
+
+// ══════════════════════════════════════════════════════════════
+// UPPGIFTER — Kanban-board (Hög / Medel / Låg prio)
+// Storage key: ep_tasks2
+// ══════════════════════════════════════════════════════════════
+
+let _taskEditId = null;
+
+function _loadTasks(){ try{ return JSON.parse(localStorage.getItem('ep_tasks2')||'[]'); }catch{ return []; } }
+function _saveTasks(t){ localStorage.setItem('ep_tasks2', JSON.stringify(t)); }
+function _tid(){ return 't'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
+
+const PRIO_META = {
+  hog:   { label:'🔴 Hög prio',   col:'var(--red)',              colId:'col-hog'   },
+  medel: { label:'🟡 Medel prio',  col:'var(--yellow,#f59e0b)',   colId:'col-medel' },
+  lag:   { label:'🟢 Låg prio',    col:'var(--green)',            colId:'col-lag'   }
+};
+const CAT_META = {
+  Event: { label:'Event', color:'#6c63ff' },
+  Pren:  { label:'Prenumeration', color:'#4ecdc4' }
+};
+
+function renderTasks(){
+  const filterCat  = document.getElementById('task-filter-cat')?.value||'all';
+  const filterEv    = document.getElementById('task-filter-ev')?.value||'all';
+  const filterBrand = document.getElementById('task-filter-brand')?.value||'all';
+  const showDone   = document.getElementById('task-show-done')?.checked||false;
+  const today      = new Date().toISOString().slice(0,10);
+
+  let tasks = _loadTasks();
+
+  // Populate event filter
+  const evSel = document.getElementById('task-filter-ev');
+  if(evSel){
+    const cur = evSel.value;
+    evSel.innerHTML = '<option value="all">Alla event</option>';
+    [...events].sort((a,b)=>a.year-b.year||getName(a).localeCompare(getName(b))).forEach(ev=>{
+      const o=document.createElement('option');
+      o.value=ev.id; o.textContent=getName(ev)+' '+ev.year;
+      if(ev.id===cur) o.selected=true;
+      evSel.appendChild(o);
+    });
+    if(cur) evSel.value=cur;
+  }
+
+  // KPI
+  const kpiEl = document.getElementById('task-kpi');
+  if(kpiEl){
+    const total=tasks.length, done=tasks.filter(t=>t.done).length;
+    const overdue=tasks.filter(t=>!t.done&&t.due&&t.due<today).length;
+    const hog=tasks.filter(t=>!t.done&&t.prio==='hog').length;
+    kpiEl.innerHTML=`
+      <div class="s-card"><div class="lbl">Totalt</div><div class="val">${total}</div></div>
+      <div class="s-card"><div class="lbl">Avklarade</div><div class="val" style="color:var(--green)">${done}</div></div>
+      <div class="s-card"><div class="lbl">Öppna</div><div class="val">${total-done}</div></div>
+      <div class="s-card"><div class="lbl">⚠ Försenade</div><div class="val" style="color:var(--red)">${overdue}</div></div>
+      <div class="s-card"><div class="lbl">🔴 Hög prio</div><div class="val" style="color:var(--red)">${hog}</div></div>`;
+  }
+
+  let filtered = tasks.slice();
+  if(!showDone)         filtered = filtered.filter(t=>!t.done);
+  if(filterCat!=='all') filtered = filtered.filter(t=>t.cat===filterCat);
+  if(filterEv!=='all')    filtered = filtered.filter(t=>t.eventId===filterEv);
+  if(filterBrand!=='all') filtered = filtered.filter(t=>t.brand===filterBrand);
+
+  const CAT_META = {
+    Event: {label:'Event', color:'#6c63ff'},
+    Pren:  {label:'Prenumeration', color:'#4ecdc4'}
+  };
+  const PRIO_META = {
+    hog:   {label:'🔴 Hög prio',  col:'var(--red)'},
+    medel: {label:'🟡 Medel prio', col:'#f59e0b'},
+    lag:   {label:'🟢 Låg prio',  col:'var(--green)'}
+  };
+
+  ['hog','medel','lag'].forEach(prio=>{
+    const colEl = document.getElementById('col-'+prio);
+    if(!colEl) return;
+    const meta = PRIO_META[prio];
+    const group = filtered.filter(t=>t.prio===prio).sort((a,b)=>{
+      if(!a.due&&!b.due) return 0; if(!a.due) return 1; if(!b.due) return -1;
+      return a.due.localeCompare(b.due);
+    });
+
+    const cards = group.map(t=>{
+      const ev = t.eventId ? getEv(t.eventId) : null;
+      const isOverdue = !t.done && t.due && t.due < today;
+      const isDueToday = !t.done && t.due && t.due === today;
+      const dueCol = isOverdue?'var(--red)':isDueToday?'#f59e0b':'var(--muted)';
+      const cat = CAT_META[t.cat]||{label:t.cat,color:'#888'};
+      const sid = JSON.stringify(t.id);
+
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;'+(t.done?'opacity:0.45;':'');
+      card.innerHTML =
+        // Cat pill + action buttons
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+          +'<span style="font-size:0.6rem;padding:2px 8px;border-radius:4px;font-weight:700;background:'+cat.color+'22;color:'+cat.color+';border:1px solid '+cat.color+'44;">'+cat.label+'</span>'
+          +'<div style="display:flex;gap:4px;">'
+            +'<button title="'+(t.done?'Återöppna':'Markera klar')+'" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:'+(t.done?'var(--muted)':'var(--green)')+';">'+(t.done?'↩':'✓')+'</button>'
+            +'<button style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--red);">✕</button>'
+          +'</div>'
+        +'</div>'
+        // Title
+        +'<div style="font-size:0.85rem;font-weight:600;margin-bottom:8px;line-height:1.3;'+(t.done?'text-decoration:line-through;color:var(--muted);':'')+'">'+t.title+'</div>'
+        // Meta
+        +'<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;">'
+          +(t.due?'<span style="font-size:0.65rem;color:'+dueCol+';font-weight:600;">'+(isOverdue?'⚠ ':isDueToday?'🔔 ':'📅 ')+t.due+'</span>':'')
+          +(ev?'<span style="font-size:0.62rem;color:var(--accent2);background:var(--card2);padding:2px 6px;border-radius:4px;">'+getName(ev)+'</span>':'')
+          +(t.owner?'<span style="font-size:0.62rem;color:var(--muted);">👤 '+t.owner+'</span>':'')
+        +'</div>'
+        // Prio move buttons
+        +'<div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end;">'
+          +(prio!=='hog'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f003;background:transparent;color:var(--red);cursor:pointer;">↑ Hög</button>':'')
+          +(prio!=='medel'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f9a03344;background:transparent;color:#f59e0b;cursor:pointer;">↕ Medel</button>':'')
+          +(prio!=='lag'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #0f03;background:transparent;color:var(--green);cursor:pointer;">↓ Låg</button>':'')
+        +'</div>';
+
+      // Wire up buttons using addEventListener (avoids quote hell)
+      const btns = card.querySelectorAll('button');
+      let bi = 0;
+      // Done toggle
+      btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); toggleTaskDone(t.id, !t.done); });
+      // Delete
+      btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); deleteTask(t.id); });
+      // Prio buttons
+      if(prio!=='hog')   btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'hog'); });
+      if(prio!=='medel') btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'medel'); });
+      if(prio!=='lag')   btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'lag'); });
+      // Card click opens edit (set after buttons to avoid conflict)
+      card.addEventListener('click', ()=>openEditTask(t.id));
+
+      return card;
+    });
+
+    const header = '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:0.78rem;font-weight:800;color:'+meta.col+';">'+meta.label+'</span>'
+      +'<div style="display:flex;align-items:center;gap:8px;">'
+        +'<span style="font-size:0.7rem;color:var(--muted);">'+group.length+'</span>'
+        +'<button style="font-size:0.72rem;padding:3px 10px;border-radius:6px;border:1px solid '+meta.col+'44;background:transparent;color:'+meta.col+';cursor:pointer;font-weight:700;">+ Lägg till</button>'
+      +'</div>'
+    +'</div>';
+
+    const body = document.createElement('div');
+    body.style.cssText = 'border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;padding:10px;min-height:80px;';
+    if(!cards.length){
+      body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:0.75rem;">Inga uppgifter</div>';
+    } else {
+      cards.forEach(c=>body.appendChild(c));
+    }
+
+    colEl.innerHTML = header;
+    colEl.appendChild(body);
+
+    // Wire up header + button
+    const addBtn = colEl.querySelector('button');
+    if(addBtn) addBtn.addEventListener('click', ()=>openAddTask(prio));
+  });
+}
+
+function openAddTask(defaultPrio){
+  _taskEditId = null;
+  document.getElementById('task-modal-title').textContent='Ny uppgift';
+  document.getElementById('tm-title').value='';
+  document.getElementById('tm-prio').value=defaultPrio||'medel';
+  document.getElementById('tm-cat').value='Event';
+  document.getElementById('tm-due').value='';
+  document.getElementById('tm-owner').value='';
+  document.getElementById('tm-note').value='';
+  const sel=document.getElementById('tm-event');
+  sel.innerHTML='<option value="">— Inget event —</option>';
+  [...events].sort((a,b)=>a.year-b.year||getName(a).localeCompare(getName(b))).forEach(ev=>{
+    const o=document.createElement('option'); o.value=ev.id;
+    o.textContent=getName(ev)+' '+ev.year; sel.appendChild(o);
+  });
+  document.getElementById('task-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('tm-title').focus(),50);
+}
+
+function openEditTask(id){
+  const t=_loadTasks().find(x=>x.id===id); if(!t) return;
+  _taskEditId=id;
+  document.getElementById('task-modal-title').textContent='Redigera uppgift';
+  document.getElementById('tm-title').value=t.title||'';
+  document.getElementById('tm-prio').value=t.prio||'medel';
+  document.getElementById('tm-cat').value=t.cat||'Event';
+  document.getElementById('tm-due').value=t.due||'';
+  document.getElementById('tm-owner').value=t.owner||'';
+  document.getElementById('tm-note').value=t.note||'';
+  const sel=document.getElementById('tm-event');
+  sel.innerHTML='<option value="">— Inget event —</option>';
+  [...events].sort((a,b)=>a.year-b.year||getName(a).localeCompare(getName(b))).forEach(ev=>{
+    const o=document.createElement('option'); o.value=ev.id;
+    o.textContent=getName(ev)+' '+ev.year;
+    if(ev.id===t.eventId) o.selected=true;
+    sel.appendChild(o);
+  });
+  document.getElementById('task-modal').style.display='flex';
+}
+
+function closeTaskModal(){ document.getElementById('task-modal').style.display='none'; }
+
+function saveTask(){
+  const title=document.getElementById('tm-title').value.trim();
+  if(!title){ alert('Ange en uppgift!'); return; }
+  const tasks=_loadTasks();
+  if(_taskEditId){
+    const t=tasks.find(x=>x.id===_taskEditId);
+    if(t){ t.title=title; t.prio=document.getElementById('tm-prio').value;
+      t.cat=document.getElementById('tm-cat').value;
+      t.due=document.getElementById('tm-due').value;
+      t.owner=document.getElementById('tm-owner').value.trim();
+      t.eventId=document.getElementById('tm-event').value;
+      t.note=document.getElementById('tm-note').value.trim(); }
+  } else {
+    tasks.push({ id:_tid(), title,
+      prio:document.getElementById('tm-prio').value,
+      cat:document.getElementById('tm-cat').value,
+      due:document.getElementById('tm-due').value,
+      owner:document.getElementById('tm-owner').value.trim(),
+      eventId:document.getElementById('tm-event').value,
+      note:document.getElementById('tm-note').value.trim(),
+      done:false, doneAt:null, createdAt:new Date().toISOString() });
+  }
+  _saveTasks(tasks); closeTaskModal(); renderTasks();
+}
+
+function toggleTaskDone(id, done){
+  const tasks=_loadTasks(); const t=tasks.find(x=>x.id===id); if(!t) return;
+  t.done=done; t.doneAt=done?new Date().toISOString():null;
+  _saveTasks(tasks); renderTasks();
+}
+
+function moveTask(id, newPrio){
+  const tasks=_loadTasks(); const t=tasks.find(x=>x.id===id); if(!t) return;
+  t.prio=newPrio; _saveTasks(tasks); renderTasks();
+}
+
+function deleteTask(id){
+  if(!confirm('Ta bort uppgiften?')) return;
+  _saveTasks(_loadTasks().filter(x=>x.id!==id)); renderTasks();
+}
+
+
+
 </script>
-
-
-<!-- ═══ NOTES MODAL ═══ -->
-<div class="modal-bg" id="notes-modal" style="display:none;" onclick="closeNotesBg(event)">
-  <div class="modal" style="max-width:500px;">
-    <div class="modal-header">
-      <h3 id="notes-modal-title">📝 Anteckning</h3>
-      <button class="modal-close" onclick="closeNotesModal()">✕</button>
-    </div>
-    <div class="modal-body" id="notes-modal-body" style="max-height:70vh;overflow-y:auto;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-cancel" onclick="closeNotesModal()">Stäng</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ TASKS MODAL ═══ -->
-<div class="modal-bg" id="tasks-modal" style="display:none;" onclick="closeTasksBg(event)">
-  <div class="modal" style="max-width:480px;">
-    <div class="modal-header">
-      <h3 id="tasks-modal-title">✅ Tasks</h3>
-      <button class="modal-close" onclick="closeTasksModal()">✕</button>
-    </div>
-    <div class="modal-body" id="tasks-modal-body" style="max-height:70vh;overflow-y:auto;"></div>
-    <div class="modal-footer">
-      <button class="btn btn-cancel" onclick="closeTasksModal()">Stäng</button>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ VERSION FOOTER ═══ -->
-<div style="text-align:center;padding:16px;font-size:0.65rem;color:var(--muted);border-top:1px solid var(--border);margin-top:20px;">
-  Eventplanering Dashboard · Version 10 · Uppdaterad 2026-03-26
-</div>
-
-    <div class="modal-body" id="studio-modal-body"></div>
-    <div class="modal-footer" id="studio-modal-footer"></div>
-  </div>
-</div>
-
-
-<!-- ═══ STUDIO ═══ -->
-<div class="content" id="tab-studio" style="display:none;">
-  <div style="padding:14px 14px 0;" id="studio-summary"></div>
-  <div style="padding:14px;">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-      <button class="btn btn-primary" onclick="openStudioModal()" style="font-size:0.8rem;padding:7px 14px;">
-        ＋ Ny studiobokning
-      </button>
-      <button onclick="resetStudioData()" style="font-size:0.75rem;padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;" title="Återställ till CSV-data">
-        🔄 Återställ
-      </button>
-      <select class="form-select" id="studio-year-filter" style="width:auto;font-size:0.8rem;" onchange="renderStudio()">
-        <option value="all">Alla år</option>
-        <option value="2026" selected>2026</option>
-        <option value="2027">2027</option>
-        <option value="2028">2028</option>
-      </select>
-      <select class="form-select" id="studio-type-filter" style="width:auto;font-size:0.8rem;" onchange="renderStudio()">
-        <option value="all">Alla typer</option>
-        <option value="Webbinar">Webbinar</option>
-        <option value="Frukost webbinar">Frukost webbinar</option>
-        <option value="Sponsrat webbinar">Sponsrat webbinar</option>
-        <option value="Techtorsdag">Techtorsdag</option>
-        <option value="Spårvalsinspelning">Spårvalsinspelning</option>
-      </select>
-    </div>
-    <div id="studio-grid"></div>
-  </div>
-</div>
-
-<!-- ═══ STUDIO MODAL ═══ -->
-<div class="modal-bg" id="studio-modal" style="display:none;" onclick="if(event.target===this)closeStudioModal()">
-  <div class="modal" style="max-width:520px;">
-    <div class="modal-header">
-      <h3 id="studio-modal-title">🎙 Ny studiobokning</h3>
-      <button class="modal-close" onclick="closeStudioModal()">✕</button>
-    </div>
-    <div class="modal-body" id="studio-modal-body"></div>
-    <div class="modal-footer" id="studio-modal-footer"></div>
-  </div>
-</div>
-
-
-<!-- ═══ EVENTINFO ═══ -->
-<div class="content" id="tab-details" style="display:none;">
-  <div style="display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 120px);overflow:hidden;">
-    
-    <!-- Event list sidebar -->
-    <div style="border-right:1px solid var(--border);overflow-y:auto;padding:12px 0;">
-      <div style="padding:10px 10px 6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-        <select class="form-select" id="details-year-filter" style="font-size:0.78rem;padding:5px 8px;flex-shrink:0;width:90px;"
-          onchange="renderDetailsList()">
-          <option value="all">Alla år</option>
-          <option value="2026" selected>2026</option>
-          <option value="2027">2027</option>
-          <option value="2028">2028</option>
-        </select>
-        <input class="form-input" id="details-search" placeholder="🔍 Sök..." 
-          style="font-size:0.78rem;padding:5px 8px;flex:1;"
-          oninput="renderDetailsList()">
-      
-      </div>
-      <div id="details-list"></div>
-    </div>
-    
-    <!-- Detail form panel -->
-    <div style="display:flex;flex-direction:column;overflow:hidden;" id="details-panel-wrap">
-    <div style="padding:8px 16px;border-bottom:1px solid var(--border);background:var(--card2);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;">
-      <button onclick="importCSVEventInfo()" style="font-size:0.72rem;padding:5px 14px;border-radius:7px;border:1px solid var(--accent2);background:rgba(78,205,196,0.08);color:var(--accent2);cursor:pointer;font-weight:600;">📥 Importera lokalinfo (CSV)</button>
-    </div>
-    <div style="overflow-y:auto;padding:20px 24px;flex:1;" id="details-panel">
-      <div style="padding:60px;text-align:center;color:var(--muted);">
-        <div style="font-size:2rem;margin-bottom:12px;">📋</div>
-        <div style="font-weight:700;margin-bottom:6px;">Välj ett event till vänster</div>
-        <div style="font-size:0.82rem;">Fyll i detaljerad information om eventen</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- ═══ EVENT SUMMARY MODAL ═══ -->
-<div class="modal-bg" id="detail-summary-modal" style="display:none;" 
-  onclick="if(event.target===this)document.getElementById('detail-summary-modal').style.display='none'">
-  <div class="modal" style="max-width:680px;max-height:85vh;display:flex;flex-direction:column;">
-    <div class="modal-header">
-      <h3 id="summary-modal-title">📋 Eventinfo</h3>
-      <button class="modal-close" onclick="document.getElementById('detail-summary-modal').style.display='none'">✕</button>
-    </div>
-    <div class="modal-body" id="summary-modal-body" style="overflow-y:auto;flex:1;"></div>
-    <div class="modal-footer" style="gap:10px;">
-      <button class="btn btn-cancel" onclick="document.getElementById('detail-summary-modal').style.display='none'">Stäng</button>
-      <button class="btn" id="summary-edit-btn"
-        style="padding:8px 16px;border-radius:8px;border:1px solid var(--accent);
-        background:rgba(108,99,255,0.1);color:var(--accent);cursor:pointer;font-weight:600;">
-        ✏️ Redigera i Eventinfo
-      </button>
-      <button class="btn btn-primary" id="summary-export-btn">📥 Exportera till Excel</button>
-    </div>
-  </div>
-</div>
-
-
-
-<!-- ═══ EXPORT ICS MODAL ═══ -->
-<div class="modal-bg" id="export-ics-modal" style="display:none;" onclick="if(event.target===this)document.getElementById('export-ics-modal').style.display='none'">
-  <div class="modal" style="max-width:420px;">
-    <div class="modal-header">
-      <h3>📅 Exportera till Outlook</h3>
-      <button class="modal-close" onclick="document.getElementById('export-ics-modal').style.display='none'">✕</button>
-    </div>
-    <div class="modal-body" id="export-ics-body"></div>
-    <div class="modal-footer">
-      <button class="btn btn-cancel" onclick="document.getElementById('export-ics-modal').style.display='none'">Avbryt</button>
-      <button class="btn btn-primary" onclick="doExportICS()">📥 Exportera</button>
-    </div>
-  </div>
-</div>
-
-
-<!-- ═══ EKONOMI ═══ -->
-
-
 </body>
 </html>
