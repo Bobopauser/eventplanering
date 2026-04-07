@@ -116,6 +116,12 @@
   .brand-btn[data-brand="Miljö & Utveckling"] { border-color: var(--mu); }
   .brand-btn[data-brand="Miljö & Utveckling"].on { background: var(--mu); color: white; }
   .brand-btn[data-brand="Techtidningen"]      { border-color: var(--tech); }
+  .brand-btn[data-brand="Hållbart Samhällsbyggande"] { border-color: #2e7d32; }
+  .brand-btn[data-brand="Hållbart Samhällsbyggande"].on { background: #2e7d32; color: white; }
+  .brand-btn[data-brand="Kvalitetsvård"] { border-color: #0277bd; }
+  .brand-btn[data-brand="Kvalitetsvård"].on { background: #0277bd; color: white; }
+  .brand-btn[data-brand="Praktiskt ledarskap"] { border-color: #6a1b9a; }
+  .brand-btn[data-brand="Praktiskt ledarskap"].on { background: #6a1b9a; color: white; }
   .brand-btn[data-brand="Techtidningen"].on   { background: var(--tech); color: white; }
   .brand-btn.all-active { background: var(--accent); color: white; border-color: var(--accent); }
 
@@ -326,7 +332,7 @@
 
 <!-- ═══ LOGIN SCREEN ═══ -->
 <div id="login-screen" style="
-  position:fixed;inset:0;background:var(--bg);display:none;align-items:center;
+  position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
   justify-content:center;z-index:9999;flex-direction:column;gap:0;">
   <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;
     padding:36px 40px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.4);">
@@ -395,6 +401,9 @@
           <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
           <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
           <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
+  <button class="brand-btn" data-brand="Hållbart Samhällsbyggande" onclick="setEkoBrand('Hållbart Samhällsbyggande',this)">Hållbart Samhällsbyggande</button>
+  <button class="brand-btn" data-brand="Kvalitetsvård" onclick="setEkoBrand('Kvalitetsvård',this)">Kvalitetsvård</button>
+  <button class="brand-btn" data-brand="Praktiskt ledarskap" onclick="setEkoBrand('Praktiskt ledarskap',this)">Praktiskt ledarskap</button>
         </div>
         <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomiInline()">
           <option value="all">Alla år</option>
@@ -529,6 +538,9 @@
         <button class="fbtn" onclick="setUpcomingBrand('Kvalitetsmagasinet',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--km);color:var(--km);">KM</button>
         <button class="fbtn" onclick="setUpcomingBrand('Miljö & Utveckling',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--mu);color:var(--mu);">MU</button>
         <button class="fbtn" onclick="setUpcomingBrand('Techtidningen',this)" style="font-size:0.68rem;padding:3px 10px;border-color:var(--tech);color:var(--tech);">Tech</button>
+  <button class="brand-btn" data-brand="Hållbart Samhällsbyggande" onclick="setUpcomingBrand('Hållbart Samhällsbyggande',this)">Hållbart Samhällsbyggande</button>
+  <button class="brand-btn" data-brand="Kvalitetsvård" onclick="setUpcomingBrand('Kvalitetsvård',this)">Kvalitetsvård</button>
+  <button class="brand-btn" data-brand="Praktiskt ledarskap" onclick="setUpcomingBrand('Praktiskt ledarskap',this)">Praktiskt ledarskap</button>
       </div>
     </div>
     <div style="padding:12px;" id="upcoming-list"></div>
@@ -775,6 +787,9 @@
       <button class="brand-btn" data-brand="Kvalitetsmagasinet" onclick="setEkoBrand('Kvalitetsmagasinet',this)">Kvalitetsmagasinet</button>
       <button class="brand-btn" data-brand="Miljö & Utveckling" onclick="setEkoBrand('Miljö & Utveckling',this)">Miljö &amp; Utveckling</button>
       <button class="brand-btn" data-brand="Techtidningen" onclick="setEkoBrand('Techtidningen',this)">Techtidningen</button>
+  <button class="brand-btn" data-brand="Hållbart Samhällsbyggande" onclick="setEkoBrand('Hållbart Samhällsbyggande',this)">Hållbart Samhällsbyggande</button>
+  <button class="brand-btn" data-brand="Kvalitetsvård" onclick="setEkoBrand('Kvalitetsvård',this)">Kvalitetsvård</button>
+  <button class="brand-btn" data-brand="Praktiskt ledarskap" onclick="setEkoBrand('Praktiskt ledarskap',this)">Praktiskt ledarskap</button>
     </div>
     <select class="form-select" id="eko-year-filter" style="font-size:0.78rem;padding:5px 8px;width:auto;" onchange="renderEkonomi()">
       <option value="all">Alla år</option>
@@ -827,6 +842,8 @@
       <option value="all">Alla kategorier</option>
       <option value="Event">Event</option>
       <option value="Pren">Prenumeration</option>
+      <option value="Digital Pren">Digital Pren</option>
+      <option value="Digital Event">Digital Event</option>
     </select>
     <select id="task-filter-brand" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
       <option value="all">Alla varumärken</option>
@@ -834,10 +851,17 @@
       <option value="Kvalitetsmagasinet">Kvalitetsmagasinet</option>
       <option value="Miljö & Utveckling">Miljö &amp; Utveckling</option>
       <option value="Techtidningen">Techtidningen</option>
+      <option value="Hållbart Samhällsbyggande">Hållbart Samhällsbyggande</option>
+      <option value="Kvalitetsvård">Kvalitetsvård</option>
+      <option value="Praktiskt ledarskap">Praktiskt ledarskap</option>
     </select>
     <select id="task-filter-ev" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
       <option value="all">Alla event</option>
     </select>
+    <select id="task-filter-meeting" class="form-select" style="font-size:0.75rem;padding:5px 8px;width:auto;" onchange="renderTasks()">
+      <option value="all">Alla möten</option>
+    </select>
+    <button onclick="openAddMeeting()" style="font-size:0.72rem;padding:5px 10px;border-radius:7px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;">📅 Nytt möte</button>
     <label style="display:flex;align-items:center;gap:5px;font-size:0.75rem;color:var(--muted);cursor:pointer;">
       <input type="checkbox" id="task-show-done" onchange="renderTasks()" style="accent-color:var(--accent);">
       Visa avklarade
@@ -849,6 +873,18 @@
 
   <!-- KPI strip -->
   <div id="task-kpi" class="s-strip" style="margin-bottom:16px;"></div>
+
+  <!-- Notifieringslista -->
+  <div id="notify-settings" style="margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:0.72rem;color:var(--muted);font-weight:600;">📧 Notifiera alltid:</span>
+      <span id="notify-list-display" style="font-size:0.72rem;color:var(--text);"></span>
+      <button onclick="openNotifySettings()" style="font-size:0.68rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">⚙ Ändra</button>
+    </div>
+  </div>
+
+  <!-- Meeting list (collapsible) -->
+  <div id="meetings-section" style="margin-bottom:14px;"></div>
 
   <!-- Kanban board -->
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start;">
@@ -886,6 +922,8 @@
           <select id="tm-cat" class="form-select">
             <option value="Event">Event</option>
             <option value="Pren">Prenumeration</option>
+            <option value="Digital Pren">Digital Pren</option>
+            <option value="Digital Event">Digital Event</option>
           </select>
         </div>
       </div>
@@ -897,6 +935,9 @@
           <option value="Kvalitetsmagasinet">Kvalitetsmagasinet</option>
           <option value="Miljö &amp; Utveckling">Miljö &amp; Utveckling</option>
           <option value="Techtidningen">Techtidningen</option>
+          <option value="Hållbart Samhällsbyggande">Hållbart Samhällsbyggande</option>
+          <option value="Kvalitetsvård">Kvalitetsvård</option>
+          <option value="Praktiskt ledarskap">Praktiskt ledarskap</option>
         </select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -913,6 +954,12 @@
         <label class="form-label">Kopplat event (valfritt)</label>
         <select id="tm-event" class="form-select">
           <option value="">— Inget event —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Kopplat möte (valfritt)</label>
+        <select id="tm-meeting" class="form-select">
+          <option value="">— Inget möte —</option>
         </select>
       </div>
       <div class="form-group">
@@ -941,7 +988,10 @@ function prioSort(a,b){
   return (o[a.priority]??1)-(o[b.priority]??1);
 }
 
-const BRAND_COLORS = {'Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)','Miljö & Utveckling':'var(--mu)','Techtidningen':'var(--tech)'};
+const BRAND_COLORS = {
+  'Hållbart Samhällsbyggande': '#2e7d32',
+  'Kvalitetsvård':            '#0277bd',
+  'Praktiskt ledarskap':      '#6a1b9a','Vd-tidningen':'var(--vd)','Kvalitetsmagasinet':'var(--km)','Miljö & Utveckling':'var(--mu)','Techtidningen':'var(--tech)','Hållbart Samhällsbyggande':'#2e7d32','Kvalitetsvård':'#0277bd','Praktiskt ledarskap':'#6a1b9a'};
 const MONTHS_S = ['Jan','Feb','Mar','Apr','Maj','Jun','Jul','Aug','Sep','Okt','Nov','Dec'];
 const MONTHS   = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
 
@@ -960,7 +1010,7 @@ let sheetUsers = null; // loaded from Google Sheets
 
 
 function isLoggedIn(){
-  return true; // Auto-inloggad för lokal testning
+  return sessionStorage.getItem('ep_auth') === 'true';
 }
 
 function loadUsersFromSheet(callback){
@@ -1052,7 +1102,7 @@ function doLogin(){
 function checkAuth(){
   // Auto-login when running locally or in development
   const host = window.location.hostname;
-  if(true || window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
+  if(window.location.protocol === 'file:' || host === 'claude.ai' || host.includes('anthropic') || host === '' || host === 'localhost' || window.location.href.includes('local_resource')){
     sessionStorage.setItem('ep_auth', 'true');
     sessionStorage.setItem('ep_user', 'admin');
     const ls=document.getElementById('login-screen'); if(ls) ls.style.display='none';
@@ -1521,7 +1571,7 @@ function getAD(id) { const v=actuals[id]?.digital; return (v!==undefined&&v!==''
 function getAT(id) { const p=getAP(id),f=getAF(id); return (p===null&&f===null)?null:(p||0)+(f||0); }
 
 // ── HELPERS ───────────────────────────────────────────────────
-const BRANDS = ['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen'];
+const BRANDS = ['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen','Hållbart Samhällsbyggande','Kvalitetsvård','Praktiskt ledarskap'];
 
 function pcol(pct){ if(pct===null)return'var(--muted)'; return pct>=100?'var(--green)':pct>=80?'var(--yellow)':'var(--red)'; }
 function dotCls(pct){ if(pct===null)return'dot dot-e'; return pct>=100?'dot dot-g':pct>=80?'dot dot-y':'dot dot-r'; }
@@ -4767,7 +4817,7 @@ function openExportICSModal(){
       <label class="form-label">Varumärke</label>
       <select class="form-select" id="exp-brand">
         <option value="all" ${activeBrandVal==='all'?'selected':''}>Alla varumärken</option>
-        ${['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen'].map(b=>
+        ${['Vd-tidningen','Kvalitetsmagasinet','Miljö & Utveckling','Techtidningen','Hållbart Samhällsbyggande','Kvalitetsvård','Praktiskt ledarskap'].map(b=>
           `<option value="${b}" ${activeBrandVal===b?'selected':''}>${b}</option>`
         ).join('')}
       </select>
@@ -5577,6 +5627,106 @@ function renderEkonomiInline(){
 }
 
 // Update saveEkoData to also refresh the event panel if open
+
+// ── MÖTEN (för Uppgifter-fliken) ──────────────────────────────
+function loadMeetings(){ try{ return JSON.parse(localStorage.getItem('ep_meetings')||'[]'); }catch{ return []; } }
+function saveMeetings(m){ localStorage.setItem('ep_meetings', JSON.stringify(m)); }
+function newMeetingId(){ return 'm'+Date.now()+'_'+Math.random().toString(36).slice(2,6); }
+
+
+// ── NOTIFIERINGSINSTÄLLNINGAR ──────────────────────────────────
+function getNotifyEmails(){
+  return localStorage.getItem('ep_notify_emails')||'';
+}
+function saveNotifyEmails(v){
+  localStorage.setItem('ep_notify_emails', v);
+}
+function openNotifySettings(){
+  document.getElementById('notify-emails-input').value = getNotifyEmails();
+  document.getElementById('notify-settings-modal').style.display = 'flex';
+}
+function closeNotifySettings(){
+  document.getElementById('notify-settings-modal').style.display = 'none';
+}
+function saveNotifySettings(){
+  const v = document.getElementById('notify-emails-input').value.trim();
+  saveNotifyEmails(v);
+  closeNotifySettings();
+  updateNotifyDisplay();
+}
+function updateNotifyDisplay(){
+  const el = document.getElementById('notify-list-display');
+  if(!el) return;
+  const emails = getNotifyEmails();
+  el.textContent = emails ? emails : '(ingen lista inställd)';
+  el.style.color = emails ? 'var(--text)' : 'var(--muted)';
+}
+
+function setMeetingFilter(id){
+  const sel = document.getElementById('task-filter-meeting');
+  if(sel) sel.value = id;
+}
+
+function openAddMeeting(){
+  document.getElementById('meeting-modal-title').textContent = 'Nytt möte';
+  document.getElementById('mm-name').value = '';
+  document.getElementById('mm-date').value = '';
+  document.getElementById('mm-desc').value = '';
+  document.getElementById('mm-edit-id').value = '';
+  document.getElementById('meeting-modal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('mm-name').focus(), 50);
+}
+
+function openEditMeeting(id){
+  const m = loadMeetings().find(x=>x.id===id); if(!m) return;
+  document.getElementById('meeting-modal-title').textContent = 'Redigera möte';
+  document.getElementById('mm-name').value = m.name||'';
+  document.getElementById('mm-date').value = m.date||'';
+  document.getElementById('mm-desc').value = m.desc||'';
+  document.getElementById('mm-edit-id').value = id;
+  document.getElementById('meeting-modal').style.display = 'flex';
+}
+
+function closeMeetingModal(){ document.getElementById('meeting-modal').style.display = 'none'; }
+
+function saveMeeting(){
+  const name = document.getElementById('mm-name').value.trim();
+  if(!name){ alert('Ange ett mötesnamn!'); return; }
+  const meetings = loadMeetings();
+  const editId = document.getElementById('mm-edit-id').value;
+  if(editId){
+    const m = meetings.find(x=>x.id===editId);
+    if(m){ m.name=name; m.date=document.getElementById('mm-date').value; m.desc=document.getElementById('mm-desc').value.trim(); }
+  } else {
+    meetings.push({ id:newMeetingId(), name, date:document.getElementById('mm-date').value, desc:document.getElementById('mm-desc').value.trim() });
+  }
+  saveMeetings(meetings);
+  closeMeetingModal();
+  renderTasks();
+}
+
+function deleteMeeting(id){
+  if(!confirm('Ta bort mötet? Uppgifter kopplade till mötet tappar sin koppling.')) return;
+  saveMeetings(loadMeetings().filter(x=>x.id!==id));
+  // Remove meetingId from tasks
+  const tasks = _loadTasks().map(t=>{ if(t.meetingId===id) t.meetingId=''; return t; });
+  _saveTasks(tasks);
+  renderTasks();
+}
+
+function populateMeetingSelect(selId, currentVal){
+  const sel = document.getElementById(selId); if(!sel) return;
+  const meetings = loadMeetings().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  sel.innerHTML = '<option value="">— Inget möte —</option>';
+  meetings.forEach(m=>{
+    const o = document.createElement('option');
+    o.value = m.id;
+    o.textContent = (m.date ? m.date+' · ' : '') + m.name;
+    if(m.id === currentVal) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
 // ── EKONOMI HISTORIK ───────────────────────────────────────────
 let ekoHistorikOpen = false;
 
@@ -6031,8 +6181,10 @@ const PRIO_META = {
   lag:   { label:'🟢 Låg prio',    col:'var(--green)',            colId:'col-lag'   }
 };
 const CAT_META = {
-  Event: { label:'Event', color:'#6c63ff' },
-  Pren:  { label:'Prenumeration', color:'#4ecdc4' }
+  Event:          { label:'Event',          color:'#6c63ff' },
+  Pren:           { label:'Prenumeration',  color:'#4ecdc4' },
+  'Digital Pren': { label:'Digital Pren',  color:'#e07b39' },
+  'Digital Event':{ label:'Digital Event', color:'#d4a017' }
 };
 
 function renderTasks(){
@@ -6077,6 +6229,45 @@ function renderTasks(){
   if(filterCat!=='all') filtered = filtered.filter(t=>t.cat===filterCat);
   if(filterEv!=='all')    filtered = filtered.filter(t=>t.eventId===filterEv);
   if(filterBrand!=='all') filtered = filtered.filter(t=>t.brand===filterBrand);
+  const filterMeeting = document.getElementById('task-filter-meeting')?.value||'all';
+  if(filterMeeting!=='all') filtered = filtered.filter(t=>t.meetingId===filterMeeting);
+
+  updateNotifyDisplay();
+
+  // Render meeting list
+  const meetingsSection = document.getElementById('meetings-section');
+  if(meetingsSection){
+    const meetings = loadMeetings().sort((a,b)=>(a.date||'zz').localeCompare(b.date||'zz'));
+    if(meetings.length){
+      meetingsSection.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">'
+        +'<span style="font-size:0.72rem;color:var(--muted);font-weight:600;">📅 Möten:</span>'
+        +meetings.map(m=>{
+          const taskCount = _loadTasks().filter(t=>t.meetingId===m.id&&!t.done).length;
+          return '<div style="display:flex;align-items:center;gap:0;background:var(--card2);border:1px solid var(--border);border-radius:8px;overflow:hidden;">'
+            +'<button onclick="setMeetingFilter(\''+m.id+'\');renderTasks()" '
+            +'style="font-size:0.72rem;padding:4px 10px;background:transparent;border:none;color:var(--text);cursor:pointer;">'
+            +m.name+(m.date?' <span style=\'font-size:0.62rem;color:var(--muted);\'>'+m.date+'</span>':'')
+            +(taskCount?' <span style=\'font-size:0.65rem;background:var(--accent);color:#fff;border-radius:10px;padding:1px 5px;\'>'+taskCount+'</span>':'')
+            +'</button>'
+            +'<button onclick="openEditMeeting(\''+m.id+'\')" style="padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:0.65rem;">✏️</button>'
+            +'<button onclick="deleteMeeting(\''+m.id+'\')" style="padding:4px 6px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--red);cursor:pointer;font-size:0.65rem;">✕</button>'
+            +'</div>';
+        }).join('')
+        +'</div>';
+    } else {
+      meetingsSection.innerHTML = '';
+    }
+  }
+
+  // Populate meeting filter dropdown
+  const meetingSel = document.getElementById('task-filter-meeting');
+  if(meetingSel){
+    const curMeeting = meetingSel.value;
+    const meetings = loadMeetings().sort((a,b)=>(a.date||'zz').localeCompare(b.date||'zz'));
+    meetingSel.innerHTML = '<option value="all">Alla möten</option>'
+      + meetings.map(m=>'<option value="'+m.id+'"'+(m.id===curMeeting?' selected':'')+'>'+
+        (m.date?m.date+' · ':'')+m.name+'</option>').join('');
+  }
 
   const CAT_META = {
     Event: {label:'Event', color:'#6c63ff'},
@@ -6112,8 +6303,8 @@ function renderTasks(){
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
           +'<span style="font-size:0.6rem;padding:2px 8px;border-radius:4px;font-weight:700;background:'+cat.color+'22;color:'+cat.color+';border:1px solid '+cat.color+'44;">'+cat.label+'</span>'
           +'<div style="display:flex;gap:4px;">'
-            +'<button title="'+(t.done?'Återöppna':'Markera klar')+'" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:'+(t.done?'var(--muted)':'var(--green)')+';">'+(t.done?'↩':'✓')+'</button>'
-            +'<button style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--red);">✕</button>'
+            +'<button data-action="done" title="'+(t.done?'Återöppna':'Markera klar')+'" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:'+(t.done?'var(--muted)':'var(--green)')+';">'+(t.done?'↩':'✓')+'</button>'
+            +'<button data-action="delete" style="font-size:0.7rem;padding:2px 6px;border-radius:5px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--red);">✕</button>'
           +'</div>'
         +'</div>'
         // Title
@@ -6123,26 +6314,27 @@ function renderTasks(){
           +(t.due?'<span style="font-size:0.65rem;color:'+dueCol+';font-weight:600;">'+(isOverdue?'⚠ ':isDueToday?'🔔 ':'📅 ')+t.due+'</span>':'')
           +(ev?'<span style="font-size:0.62rem;color:var(--accent2);background:var(--card2);padding:2px 6px;border-radius:4px;">'+getName(ev)+'</span>':'')
           +(t.owner?'<span style="font-size:0.62rem;color:var(--muted);">👤 '+t.owner+'</span>':'')
+          +(t.meetingId?(()=>{ const mtg=loadMeetings().find(x=>x.id===t.meetingId); return mtg?'<span style="font-size:0.62rem;color:var(--accent);background:var(--card2);padding:2px 6px;border-radius:4px;border:1px solid var(--border);">📅 '+mtg.name+'</span>':''; })():'')
         +'</div>'
         // Prio move buttons
         +'<div style="display:flex;gap:4px;margin-top:8px;justify-content:flex-end;">'
-          +(prio!=='hog'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f003;background:transparent;color:var(--red);cursor:pointer;">↑ Hög</button>':'')
-          +(prio!=='medel'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f9a03344;background:transparent;color:#f59e0b;cursor:pointer;">↕ Medel</button>':'')
-          +(prio!=='lag'?'<button style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #0f03;background:transparent;color:var(--green);cursor:pointer;">↓ Låg</button>':'')
+          +(prio!=='hog'?'<button data-action="hog" style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f003;background:transparent;color:var(--red);cursor:pointer;">↑ Hög</button>':'')
+          +(prio!=='medel'?'<button data-action="medel" style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #f9a03344;background:transparent;color:#f59e0b;cursor:pointer;">↕ Medel</button>':'')
+          +(prio!=='lag'?'<button data-action="lag" style="font-size:0.58rem;padding:2px 6px;border-radius:4px;border:1px solid #0f03;background:transparent;color:var(--green);cursor:pointer;">↓ Låg</button>':'')
         +'</div>';
 
-      // Wire up buttons using addEventListener (avoids quote hell)
-      const btns = card.querySelectorAll('button');
-      let bi = 0;
-      // Done toggle
-      btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); toggleTaskDone(t.id, !t.done); });
-      // Delete
-      btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); deleteTask(t.id); });
-      // Prio buttons
-      if(prio!=='hog')   btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'hog'); });
-      if(prio!=='medel') btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'medel'); });
-      if(prio!=='lag')   btns[bi++].addEventListener('click', e=>{ e.stopPropagation(); moveTask(t.id,'lag'); });
-      // Card click opens edit (set after buttons to avoid conflict)
+      // Wire up using data-action (robust against button count changes)
+      card.querySelectorAll('[data-action]').forEach(btn=>{
+        btn.addEventListener('click', e=>{
+          e.stopPropagation();
+          const a = btn.dataset.action;
+          if(a==='done')        toggleTaskDone(t.id, !t.done);
+          else if(a==='delete') deleteTask(t.id);
+          else if(a==='hog')    moveTask(t.id,'hog');
+          else if(a==='medel')  moveTask(t.id,'medel');
+          else if(a==='lag')    moveTask(t.id,'lag');
+        });
+      });
       card.addEventListener('click', ()=>openEditTask(t.id));
 
       return card;
@@ -6188,6 +6380,7 @@ function openAddTask(defaultPrio){
     const o=document.createElement('option'); o.value=ev.id;
     o.textContent=getName(ev)+' '+ev.year; sel.appendChild(o);
   });
+  populateMeetingSelect('tm-meeting','');
   document.getElementById('task-modal').style.display='flex';
   setTimeout(()=>document.getElementById('tm-title').focus(),50);
 }
@@ -6243,7 +6436,41 @@ function saveTask(){
 function toggleTaskDone(id, done){
   const tasks=_loadTasks(); const t=tasks.find(x=>x.id===id); if(!t) return;
   t.done=done; t.doneAt=done?new Date().toISOString():null;
-  _saveTasks(tasks); renderTasks();
+  _saveTasks(tasks);
+  if(done && (getNotifyEmails().trim() || (t.notify && t.notify.trim()))){
+    sendTaskDoneNotification(t);
+  }
+  renderTasks();
+}
+
+function sendTaskDoneNotification(t){
+  // Combine fixed list + per-task recipients, deduplicate
+  const fixedEmails = getNotifyEmails().split(',').map(e=>e.trim()).filter(Boolean);
+  const taskEmails  = (t.notify||'').split(',').map(e=>e.trim()).filter(Boolean);
+  const allEmails   = [...new Set([...fixedEmails, ...taskEmails])];
+  if(!allEmails.length) return;
+
+  const ev = t.eventId ? getEv(t.eventId) : null;
+  const mtg = t.meetingId ? loadMeetings().find(m=>m.id===t.meetingId) : null;
+  const subject = encodeURIComponent('✅ Uppgift klar: ' + t.title);
+  let body = 'Hej!\n\nFöljande uppgift har markerats som klar:\n\n';
+  body += '📋 Uppgift: ' + t.title + '\n';
+  body += '🎯 Prioritet: ' + {hog:'Hög',medel:'Medel',lag:'Låg'}[t.prio] + '\n';
+  if(t.cat) body += '🏷 Kategori: ' + t.cat + '\n';
+  if(t.brand) body += '🏢 Varumärke: ' + t.brand + '\n';
+  if(ev) body += '📅 Kopplat event: ' + getName(ev) + ' ' + ev.year + '\n';
+  if(mtg) body += '📅 Kopplat möte: ' + mtg.name + '\n';
+  if(t.owner) body += '👤 Ansvarig: ' + t.owner + '\n';
+  if(t.note) body += '\nNotering: ' + t.note + '\n';
+  body += '\nAvklarad: ' + new Date().toLocaleDateString('sv-SE') + '\n';
+  body += '\n// Eventplanering Dashboard';
+  const mailto = 'mailto:' + allEmails.join(',') + '?subject=' + subject + '&body=' + encodeURIComponent(body);
+  const a = document.createElement('a');
+  a.href = mailto;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>a.remove(), 500);
 }
 
 function moveTask(id, newPrio){
@@ -6259,5 +6486,55 @@ function deleteTask(id){
 
 
 </script>
+
+<!-- ═══ MEETING MODAL ═══ -->
+<div id="meeting-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:700;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:92%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <h3 id="meeting-modal-title" style="font-size:1rem;font-weight:800;margin:0;">Nytt möte</h3>
+      <button onclick="closeMeetingModal()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;">✕</button>
+    </div>
+    <input type="hidden" id="mm-edit-id">
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-group">
+        <label class="form-label">Mötesnamn *</label>
+        <input id="mm-name" class="form-input" type="text" placeholder="t.ex. Veckans säljmöte">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Datum</label>
+        <input id="mm-date" class="form-input" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beskrivning</label>
+        <textarea id="mm-desc" class="note-area" rows="2" placeholder="Valfri beskrivning..."></textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeMeetingModal()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Avbryt</button>
+        <button onclick="saveMeeting()" style="padding:8px 22px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-weight:700;">Spara</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ NOTIFY SETTINGS MODAL ═══ -->
+<div id="notify-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:700;align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;width:92%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:1rem;font-weight:800;margin:0;">📧 Notifieringslista</h3>
+      <button onclick="closeNotifySettings()" style="background:transparent;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;">✕</button>
+    </div>
+    <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Dessa adresser får alltid ett mail när en uppgift markeras som klar.</p>
+    <div class="form-group">
+      <label class="form-label">E-postadresser (separera med komma)</label>
+      <textarea id="notify-emails-input" class="note-area" rows="3" placeholder="namn@exempel.se, namn2@exempel.se"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+      <button onclick="closeNotifySettings()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;">Avbryt</button>
+      <button onclick="saveNotifySettings()" style="padding:8px 22px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-weight:700;">Spara</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
